@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>STREAK</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #070709;
+      --white: #f3f2ee;
+      --accent: #c8f55a;
+      --gem: #5ab4ff;
+      --surface: #111114;
+      --s2: #18181c;
+      --border: #26262e;
+      --border2: #32323c;
+      --dim: #5a5a6e;
+      --mid: #8a8a9e;
+      --danger: #ff4455;
+      --warn: #f5a623;
+      --safe: #5dd87a;
+      --r: 3px;
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased
+    }
+
+    #root {
+      max-width: 500px;
+      margin: 0 auto;
+      min-height: 100vh
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 24px 18px 92px
+    }
+
+    .screen.active {
+      display: flex;
+      animation: up .28s ease both
+    }
+
+    @keyframes up {
+      from {
+        opacity: 0;
+        transform: translateY(10px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    /* ── TYPE ── */
+    .d {
+      font-family: 'Bebas Neue', sans-serif;
+      letter-spacing: 1px
+    }
+
+    h1.d {
+      font-size: 48px;
+      line-height: 1
+    }
+
+    h2.d {
+      font-size: 30px;
+      line-height: 1
+    }
+
+    .lbl {
+      font-size: 9px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 4px
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--mid);
+      line-height: 1.7
+    }
+
+    .err {
+      font-size: 11px;
+      color: var(--danger);
+      min-height: 14px;
+      margin-top: 4px
+    }
+
+    .good {
+      font-size: 11px;
+      color: var(--safe);
+      min-height: 14px;
+      margin-top: 4px
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      border: none;
+      font-family: 'DM Mono', monospace;
+      cursor: pointer;
+      border-radius: var(--r);
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      transition: all .15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px
+    }
+
+    .btn-p {
+      background: var(--accent);
+      color: #000;
+      padding: 14px 20px;
+      width: 100%;
+      font-weight: 500
+    }
+
+    .btn-p:hover {
+      filter: brightness(1.08)
+    }
+
+    .btn-p:active {
+      transform: scale(.98)
+    }
+
+    .btn-p:disabled {
+      opacity: .28;
+      cursor: not-allowed;
+      transform: none
+    }
+
+    .btn-g {
+      background: transparent;
+      color: var(--white);
+      border: 1px solid var(--border2);
+      padding: 11px 18px
+    }
+
+    .btn-g:hover {
+      border-color: #4a4a5e
+    }
+
+    .btn-g:active {
+      transform: scale(.98)
+    }
+
+    .btn-d {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid #3a1018;
+      padding: 10px 18px;
+      width: 100%
+    }
+
+    .btn-gem {
+      background: rgba(90, 180, 255, .08);
+      color: var(--gem);
+      border: 1px solid rgba(90, 180, 255, .2);
+      padding: 11px 18px;
+      width: 100%
+    }
+
+    .btn-gem:hover {
+      background: rgba(90, 180, 255, .15)
+    }
+
+    .btn-warn {
+      background: rgba(245, 160, 50, .08);
+      color: var(--warn);
+      border: 1px solid rgba(245, 160, 50, .25);
+      padding: 11px 18px;
+      width: 100%
+    }
+
+    .btn-warn:hover {
+      background: rgba(245, 160, 50, .15)
+    }
+
+    .btn-safe {
+      background: rgba(93, 216, 122, .1);
+      color: var(--safe);
+      border: 1px solid rgba(93, 216, 122, .25);
+      padding: 11px 18px;
+      width: 100%
+    }
+
+    /* ── INPUTS ── */
+    .field {
+      margin-bottom: 12px
+    }
+
+    .field label {
+      display: block;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 6px
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      padding: 12px 13px;
+      border-radius: var(--r);
+      outline: none;
+      transition: border-color .15s
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: #4a4a5e
+    }
+
+    .field input::placeholder {
+      color: var(--dim)
+    }
+
+    .field select option {
+      background: var(--surface)
+    }
+
+    /* ── AUTH ── */
+    .auth-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px
+    }
+
+    .atab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .2s;
+      margin-bottom: -1px
+    }
+
+    .atab.on {
+      color: var(--accent);
+      border-bottom-color: var(--accent)
+    }
+
+    /* ── STEP BAR ── */
+    .stepbar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px
+    }
+
+    .stepbar span {
+      flex: 1;
+      height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      transition: background .3s
+    }
+
+    .stepbar span.on {
+      background: var(--accent)
+    }
+
+    /* ── DAY GRID ── */
+    .day-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin: 16px 0 8px
+    }
+
+    .dbtn {
+      aspect-ratio: 1;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--dim);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: var(--r);
+      transition: all .15s
+    }
+
+    .dbtn:hover {
+      border-color: #4a4a5e;
+      color: var(--mid)
+    }
+
+    .dbtn.on {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #000
+    }
+
+    /* ── SEL CARDS ── */
+    .sel-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0
+    }
+
+    .sel-card {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 13px 12px;
+      border-radius: var(--r);
+      transition: border-color .15s;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      overflow: hidden
+    }
+
+    .sel-card:hover {
+      border-color: var(--border2)
+    }
+
+    .sel-card.on {
+      border-color: var(--accent)
+    }
+
+    .sel-card.on::after {
+      content: '✓';
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 9px;
+      color: var(--accent)
+    }
+
+    .sel-card * {
+      pointer-events: none
+    }
+
+    .sc-icon {
+      font-size: 20px;
+      margin-bottom: 6px
+    }
+
+    .sc-name {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+      margin-bottom: 2px
+    }
+
+    .sc-sub {
+      font-size: 9px;
+      color: var(--dim);
+      line-height: 1.4
+    }
+
+    .ibadge {
+      display: inline-block;
+      font-size: 8px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      margin-bottom: 6px;
+      font-weight: 500
+    }
+
+    .ibadge.beginner {
+      background: rgba(93, 216, 122, .12);
+      color: var(--safe)
+    }
+
+    .ibadge.intermediate {
+      background: rgba(200, 245, 90, .12);
+      color: var(--accent)
+    }
+
+    .ibadge.advanced {
+      background: rgba(245, 160, 50, .12);
+      color: var(--warn)
+    }
+
+    .ibadge.athlete {
+      background: rgba(255, 68, 85, .12);
+      color: var(--danger)
+    }
+
+    /* ── HOME ── */
+    .home-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px
+    }
+
+    .streak-big {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 46px;
+      color: var(--accent);
+      line-height: 1
+    }
+
+    .hud-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 8px 12px
+    }
+
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 500
+    }
+
+    .hud-item.gem {
+      color: var(--gem)
+    }
+
+    .hud-item.shield {
+      color: var(--mid)
+    }
+
+    .risk-banner {
+      background: rgba(245, 160, 50, .08);
+      border: 1px solid rgba(245, 160, 50, .25);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px
+    }
+
+    .risk-text {
+      font-size: 11px;
+      color: var(--warn);
+      line-height: 1.5
+    }
+
+    .risk-btn {
+      background: rgba(245, 160, 50, .12);
+      border: 1px solid rgba(245, 160, 50, .3);
+      color: var(--warn);
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      cursor: pointer;
+      border-radius: var(--r);
+      white-space: nowrap
+    }
+
+    .week-prog {
+      margin-bottom: 14px
+    }
+
+    .prog-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 5px;
+      overflow: hidden
+    }
+
+    .prog-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width .4s
+    }
+
+    .week-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 14px
+    }
+
+    .wday {
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 6px 2px;
+      text-align: center;
+      font-size: 8px;
+      letter-spacing: .5px;
+      color: var(--dim)
+    }
+
+    .wday.today {
+      border-color: var(--border2);
+      color: var(--white)
+    }
+
+    .wday.done {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(200, 245, 90, .05)
+    }
+
+    .wday-check {
+      font-size: 7px;
+      margin-top: 2px
+    }
+
+    .ex-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin: 6px 0
+    }
+
+    .ex-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: var(--r);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: border-color .15s
+    }
+
+    .ex-row:hover {
+      border-color: var(--border2)
+    }
+
+    .ex-row.done {
+      opacity: .35
+    }
+
+    .ex-title {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 1px
+    }
+
+    .ex-meta {
+      font-size: 9px;
+      color: var(--dim)
+    }
+
+    .bonus-card {
+      background: var(--surface);
+      border: 1px solid rgba(90, 180, 255, .18);
+      border-radius: var(--r);
+      padding: 13px;
+      margin-top: 10px
+    }
+
+    /* ── WORKOUT ── */
+    .wk-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px
+    }
+
+    .pdot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      transition: all .2s
+    }
+
+    .pdot.done {
+      background: var(--accent);
+      border-color: var(--accent)
+    }
+
+    .pdot.curr {
+      border-color: var(--white);
+      transform: scale(1.4)
+    }
+
+    /* Exercise illustration card */
+    .ex-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-bottom: 10px
+    }
+
+    .ex-visual {
+      width: 100%;
+      height: 195px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden
+    }
+
+    .ex-visual svg {
+      width: 100%;
+      height: 100%
+    }
+
+    .ex-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10px
+    }
+
+    .grp-tag {
+      display: inline-block;
+      background: rgba(7, 7, 9, .8);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 2px;
+      font-size: 8px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--mid)
+    }
+
+    .int-tag {
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      align-self: flex-end
+    }
+
+    .ex-body {
+      padding: 13px
+    }
+
+    .cues {
+      margin: 9px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px
+    }
+
+    .cue {
+      display: flex;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--mid);
+      line-height: 1.5;
+      align-items: flex-start
+    }
+
+    .cue-n {
+      color: var(--accent);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px;
+      line-height: 1;
+      min-width: 11px
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      margin: 9px 0;
+      overflow: hidden
+    }
+
+    .stat-cell {
+      background: var(--surface);
+      padding: 9px;
+      text-align: center
+    }
+
+    .stat-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 21px;
+      line-height: 1
+    }
+
+    .set-track {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 8px 0
+    }
+
+    .sdot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--dim);
+      transition: all .2s
+    }
+
+    .sdot.done {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+      font-weight: 500
+    }
+
+    .sdot.curr {
+      border-color: var(--white);
+      color: var(--white)
+    }
+
+    /* ── REST ── */
+    #rest-ov {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 4, 6, .97);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 300
+    }
+
+    #rest-ov.show {
+      display: flex;
+      animation: up .2s ease
+    }
+
+    .rest-svg {
+      position: relative;
+      width: 170px;
+      height: 170px;
+      margin-bottom: 16px
+    }
+
+    .rest-n {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 66px;
+      color: var(--accent);
+      line-height: 1;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%)
+    }
+
+    /* ── COMPLETE ── */
+    .comp-ctr {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 5px
+    }
+
+    .comp-big {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 96px;
+      color: var(--accent);
+      line-height: 1;
+      animation: pop .4s cubic-bezier(.17, .67, .42, 1.4) both
+    }
+
+    @keyframes pop {
+      from {
+        transform: scale(.6);
+        opacity: 0
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1
+      }
+    }
+
+    .gem-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(90, 180, 255, .08);
+      border: 1px solid rgba(90, 180, 255, .2);
+      border-radius: var(--r);
+      padding: 8px 14px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--gem);
+      font-weight: 500
+    }
+
+    .kcal-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 160, 50, .08);
+      border: 1px solid rgba(245, 160, 50, .2);
+      border-radius: var(--r);
+      padding: 8px 14px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--warn)
+    }
+
+    /* ── QUIZ ── */
+    .lives-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 14px
+    }
+
+    .life-dot {
+      font-size: 16px;
+      transition: all .3s
+    }
+
+    .life-dot.lost {
+      opacity: .2;
+      filter: grayscale(1)
+    }
+
+    .quiz-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-bottom: 10px
+    }
+
+    .quiz-visual {
+      width: 100%;
+      height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--s2), var(--surface));
+      border-bottom: 1px solid var(--border)
+    }
+
+    .quiz-emoji {
+      font-size: 36px
+    }
+
+    .quiz-body {
+      padding: 13px
+    }
+
+    .quiz-q {
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
+      margin-bottom: 12px
+    }
+
+    .quiz-opts {
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+
+    .quiz-opt {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 11px;
+      text-align: left;
+      color: var(--white);
+      font-family: 'DM Mono', monospace;
+      transition: all .2s;
+      letter-spacing: .3px
+    }
+
+    .quiz-opt:hover {
+      border-color: var(--border2);
+      background: #222228
+    }
+
+    .quiz-opt.correct {
+      border-color: var(--safe);
+      background: rgba(93, 216, 122, .1);
+      color: var(--safe)
+    }
+
+    .quiz-opt.wrong {
+      border-color: var(--danger);
+      background: rgba(255, 68, 85, .1);
+      color: var(--danger)
+    }
+
+    .quiz-opt.disabled {
+      cursor: not-allowed;
+      opacity: .5
+    }
+
+    .quiz-exp {
+      font-size: 11px;
+      padding: 10px 12px;
+      margin-top: 8px;
+      border-radius: var(--r);
+      line-height: 1.6
+    }
+
+    .quiz-exp.correct {
+      background: rgba(93, 216, 122, .08);
+      color: var(--safe);
+      border: 1px solid rgba(93, 216, 122, .2)
+    }
+
+    .quiz-exp.wrong {
+      background: rgba(255, 68, 85, .08);
+      color: var(--danger);
+      border: 1px solid rgba(255, 68, 85, .2)
+    }
+
+    .quiz-done {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: var(--accent);
+      border-top: 1px solid var(--border);
+      margin-top: 0
+    }
+
+    /* ── PROGRESS ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 16px
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 12px
+    }
+
+    .stat-card-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      color: var(--accent);
+      line-height: 1;
+      margin-top: 2px
+    }
+
+    .hist-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px
+    }
+
+    .pill {
+      display: inline-block;
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--dim)
+    }
+
+    .pill.g {
+      border-color: rgba(200, 245, 90, .3);
+      color: var(--accent)
+    }
+
+    .pill.b {
+      border-color: rgba(90, 180, 255, .25);
+      color: var(--gem)
+    }
+
+    .pill.o {
+      border-color: rgba(245, 160, 50, .25);
+      color: var(--warn)
+    }
+
+    /* ── WEIGHT GRAPH ── */
+    .graph-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px;
+      margin-bottom: 14px;
+      overflow: hidden
+    }
+
+    .graph-title {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 10px
+    }
+
+    #weight-svg {
+      width: 100%;
+      height: 140px;
+      display: block
+    }
+
+    .graph-empty {
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--dim);
+      text-align: center;
+      line-height: 1.6
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 14px
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 11px
+    }
+
+    .metric-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      color: var(--white);
+      line-height: 1;
+      margin-top: 2px
+    }
+
+    .metric-unit {
+      font-size: 9px;
+      color: var(--dim);
+      margin-left: 2px
+    }
+
+    /* ── STORE ── */
+    .pkg-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin: 12px 0
+    }
+
+    .pkg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 13px;
+      cursor: pointer;
+      transition: all .15s;
+      position: relative;
+      text-align: center;
+      user-select: none
+    }
+
+    .pkg-card:hover {
+      border-color: var(--border2)
+    }
+
+    .pkg-card.pop {
+      border-color: var(--accent)
+    }
+
+    .pkg-pop {
+      position: absolute;
+      top: -1px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #000;
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 0 0 4px 4px;
+      font-weight: 500;
+      white-space: nowrap
+    }
+
+    .pkg-gems {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      color: var(--gem);
+      line-height: 1;
+      margin: 6px 0 3px
+    }
+
+    .pkg-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+      margin-bottom: 5px
+    }
+
+    .pkg-price {
+      font-size: 12px;
+      color: var(--mid)
+    }
+
+    .pkg-idr {
+      font-size: 9px;
+      color: var(--dim);
+      margin-top: 1px
+    }
+
+    .store-note {
+      font-size: 10px;
+      color: var(--dim);
+      line-height: 1.5;
+      padding: 10px 12px;
+      background: var(--s2);
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+      margin-bottom: 12px
+    }
+
+    .shield-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px
+    }
+
+    .shield-dots {
+      display: flex;
+      gap: 4px
+    }
+
+    .sdot2 {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px
+    }
+
+    .sdot2.owned {
+      background: rgba(90, 180, 255, .12);
+      border-color: rgba(90, 180, 255, .3);
+      color: var(--gem)
+    }
+
+    /* ── PROFILE ── */
+    .prof-hdr {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      color: var(--accent);
+      background: var(--surface)
+    }
+
+    .pref-sec {
+      margin-bottom: 16px
+    }
+
+    .pref-sec-title {
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .pref-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px
+    }
+
+    .pref-row:last-child {
+      border-bottom: none
+    }
+
+    .pref-val {
+      color: var(--mid);
+      font-size: 10px;
+      text-align: right;
+      max-width: 200px
+    }
+
+    /* ── NAV ── */
+    #nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 500px;
+      border-top: 1px solid var(--border);
+      background: rgba(7, 7, 9, .97);
+      backdrop-filter: blur(16px);
+      padding: 8px 0 8px;
+      z-index: 100
+    }
+
+    #nav.show {
+      display: flex
+    }
+
+    .nitem {
+      flex: 1;
+      text-align: center;
+      cursor: pointer;
+      font-size: 7.5px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+      padding: 2px;
+      transition: color .15s
+    }
+
+    .nitem.on {
+      color: var(--accent)
+    }
+
+    .ni {
+      font-size: 16px;
+      margin-bottom: 1px
+    }
+
+    .cta-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 500px;
+      padding: 10px 18px 20px;
+      background: rgba(7, 7, 9, .97);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      z-index: 50
+    }
+
+    #aud-btn {
+      position: fixed;
+      top: 11px;
+      right: 11px;
+      z-index: 500;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 12px
+    }
+
+    /* ── MODAL ── */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .88);
+      z-index: 400;
+      align-items: center;
+      justify-content: center;
+      padding: 18px
+    }
+
+    .modal-bg.show {
+      display: flex
+    }
+
+    .modal {
+      background: var(--s2);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+      max-height: 88vh;
+      overflow-y: auto
+    }
+
+    .modal-close {
+      float: right;
+      background: transparent;
+      border: none;
+      color: var(--mid);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 3px;
+      line-height: 1
+    }
+
+    ::-webkit-scrollbar {
+      width: 2px
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 14px 0
+    }
+  </style>
+</head>
+
+<body>
+  <button id="aud-btn" onclick="toggleAudio()">🔊</button>
+  <div id="root">
+
+    <!-- ══ AUTH ══════════════════════════════════════════════════════════ -->
+    <div class="screen active" id="screen-auth" style="justify-content:center;padding-top:48px">
+      <div style="margin-bottom:26px">
+        <div class="lbl">Welcome to</div>
+        <h1 class="d" style="color:var(--accent)">STREAK</h1>
+        <p class="hint" style="margin-top:4px">Zero-equipment calisthenics. Train anywhere.</p>
+      </div>
+      <div class="auth-tabs">
+        <div class="atab on" id="tab-login" onclick="switchTab('login')">Log In</div>
+        <div class="atab" id="tab-signup" onclick="switchTab('signup')">Sign Up</div>
+      </div>
+      <div id="form-login">
+        <div class="field"><label>Email</label><input type="email" id="l-email" placeholder="you@example.com"></div>
+        <div class="field"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••"></div>
+        <div class="err" id="l-err"></div>
+        <button class="btn btn-p" onclick="doLogin()" style="margin-top:7px">Log In →</button>
+      </div>
+      <div id="form-signup" style="display:none">
+        <div class="field"><label>Name</label><input type="text" id="s-name" placeholder="Your name"></div>
+        <div class="field"><label>Email</label><input type="email" id="s-email" placeholder="you@example.com"></div>
+        <div class="field"><label>Password</label><input type="password" id="s-pass" placeholder="Min 6 characters">
+        </div>
+        <div class="err" id="s-err"></div>
+        <button class="btn btn-p" onclick="doSignup()" style="margin-top:7px">Create Account →</button>
+      </div>
+    </div>
+
+    <!-- ══ ONBOARDING DAYS ════════════════════════════════════════════════ -->
+    <div class="screen" id="screen-days">
+      <div class="stepbar"><span class="on"></span><span></span><span></span></div>
+      <div class="lbl">Step 1 of 3</div>
+      <h1 class="d" style="margin-bottom:7px">How many<br>days a week?</h1>
+      <p class="hint">Consistency beats intensity.</p>
+      <div class="day-grid" id="day-grid">
+        <button class="dbtn btn" onclick="selDays(1)">1</button><button class="dbtn btn" onclick="selDays(2)">2</button>
+        <button class="dbtn btn" onclick="selDays(3)">3</button><button class="dbtn btn" onclick="selDays(4)">4</button>
+        <button class="dbtn btn" onclick="selDays(5)">5</button><button class="dbtn btn" onclick="selDays(6)">6</button>
+        <button class="dbtn btn" onclick="selDays(7)">7</button>
+      </div>
+      <p id="days-hint" class="hint" style="min-height:14px;margin-bottom:20px"></p>
+      <div style="margin-top:auto"><button class="btn btn-p" id="btn-days" onclick="goTo('screen-muscles')"
+          disabled>Continue →</button></div>
+    </div>
+
+    <!-- ══ ONBOARDING MUSCLES ═════════════════════════════════════════════ -->
+    <div class="screen" id="screen-muscles">
+      <div class="stepbar"><span class="on"></span><span class="on"></span><span></span></div>
+      <div class="lbl">Step 2 of 3</div>
+      <h1 class="d" style="margin-bottom:7px">Pick your<br>focus</h1>
+      <p class="hint">Floor only. Zero equipment.</p>
+      <div class="sel-grid" id="muscle-grid">
+        <div class="sel-card" id="mc-chest" onclick="togMuscle('chest')">
+          <div class="sc-icon">💪</div>
+          <div class="sc-name">Chest</div>
+          <div class="sc-sub">Push-up variations</div>
+        </div>
+        <div class="sel-card" id="mc-back" onclick="togMuscle('back')">
+          <div class="sc-icon">🦸</div>
+          <div class="sc-name">Back</div>
+          <div class="sc-sub">Superman, YTW, cobra</div>
+        </div>
+        <div class="sel-card" id="mc-legs" onclick="togMuscle('legs')">
+          <div class="sc-icon">🦵</div>
+          <div class="sc-name">Legs</div>
+          <div class="sc-sub">Squats, bridges, RDL</div>
+        </div>
+        <div class="sel-card" id="mc-core" onclick="togMuscle('core')">
+          <div class="sc-icon">🎯</div>
+          <div class="sc-name">Core</div>
+          <div class="sc-sub">Plank, hollow, dead bug</div>
+        </div>
+        <div class="sel-card" id="mc-shoulders" onclick="togMuscle('shoulders')">
+          <div class="sc-icon">🔺</div>
+          <div class="sc-name">Shoulders</div>
+          <div class="sc-sub">Pike push-ups, wall stand</div>
+        </div>
+        <div class="sel-card" id="mc-full" onclick="togMuscle('full')">
+          <div class="sc-icon">⚡</div>
+          <div class="sc-name">Full Body</div>
+          <div class="sc-sub">Burpees, squats, push-ups</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:auto">
+        <button class="btn btn-g" onclick="goTo('screen-days')" style="width:68px">←</button>
+        <button class="btn btn-p" id="btn-muscles" onclick="goTo('screen-intensity')" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- ══ ONBOARDING INTENSITY ═══════════════════════════════════════════ -->
+    <div class="screen" id="screen-intensity">
+      <div class="stepbar"><span class="on"></span><span class="on"></span><span class="on"></span></div>
+      <div class="lbl">Step 3 of 3</div>
+      <h1 class="d" style="margin-bottom:7px">Your<br>intensity</h1>
+      <p class="hint">Adjusts sets & rest. Higher = more 💎 gems.</p>
+      <div class="sel-grid">
+        <div class="sel-card" id="ic-beginner" onclick="selInt('beginner')">
+          <div class="ibadge beginner">Beginner</div>
+          <div class="sc-name">Starting Out</div>
+          <div class="sc-sub">+0 gems</div>
+        </div>
+        <div class="sel-card on" id="ic-intermediate" onclick="selInt('intermediate')">
+          <div class="ibadge intermediate">Intermediate</div>
+          <div class="sc-name">Solid Base</div>
+          <div class="sc-sub">+5 gems</div>
+        </div>
+        <div class="sel-card" id="ic-advanced" onclick="selInt('advanced')">
+          <div class="ibadge advanced">Advanced</div>
+          <div class="sc-name">Pushing Hard</div>
+          <div class="sc-sub">+10 gems</div>
+        </div>
+        <div class="sel-card" id="ic-athlete" onclick="selInt('athlete')">
+          <div class="ibadge athlete">Athlete</div>
+          <div class="sc-name">Elite</div>
+          <div class="sc-sub">+20 gems</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:auto">
+        <button class="btn btn-g" onclick="goTo('screen-muscles')" style="width:68px">←</button>
+        <button class="btn btn-p" onclick="buildPlan()">Build My Plan →</button>
+      </div>
+    </div>
+
+    <!-- ══ HOME ═══════════════════════════════════════════════════════════ -->
+    <div class="screen" id="screen-home" style="padding-bottom:88px">
+      <div class="home-top">
+        <div>
+          <div class="lbl" id="home-lbl">Today</div>
+          <h2 class="d" id="home-title">Your Plan</h2>
+        </div>
+        <div style="text-align:right">
+          <div class="lbl">Streak</div>
+          <div class="streak-big" id="streak-num">0</div>
+          <div style="font-size:9px;color:var(--dim)">days 🔥</div>
+        </div>
+      </div>
+      <div class="hud-bar">
+        <div class="hud-item gem">💎 <span id="hud-gems">0</span></div>
+        <div class="hud-item shield">🛡️ <span id="hud-shields">0</span></div>
+        <div class="hud-item" style="color:var(--warn)">🔥 <span id="hud-streak2">0</span> day streak</div>
+      </div>
+      <div id="risk-banner" style="display:none" class="risk-banner">
+        <div class="risk-text">⚠️ Streak at risk!<br>Finish your weekly goal to keep it.</div>
+        <button class="risk-btn" onclick="useShield()">Use Shield 🛡️</button>
+      </div>
+      <div class="week-prog">
+        <div style="display:flex;justify-content:space-between">
+          <div class="lbl" style="margin-bottom:0">This week</div>
+          <div style="font-size:9px;color:var(--dim)" id="week-prog-text">0 / 0</div>
+        </div>
+        <div class="prog-bar">
+          <div class="prog-fill" id="week-prog-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="week-strip" id="week-strip"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="lbl" style="margin-bottom:0">Today's workout</div>
+        <div style="display:flex;gap:4px">
+          <div id="grp-tag" class="pill g"></div>
+          <div id="int-tag" class="pill"></div>
+        </div>
+      </div>
+      <div class="ex-list" id="home-ex-list"></div>
+      <div id="home-cta" style="margin-top:auto;padding-top:12px">
+        <div style="font-size:10px;color:var(--gem);margin-bottom:7px">💎 <span id="gems-preview">+15 gems</span> for
+          completing today</div>
+        <button class="btn btn-p" onclick="startWorkout(false)">Start Workout →</button>
+      </div>
+      <div id="bonus-section" style="display:none" class="bonus-card">
+        <div class="lbl" style="margin-bottom:4px">Bonus Workout</div>
+        <div style="font-size:11px;margin-bottom:3px">Train an extra muscle group today</div>
+        <div style="font-size:10px;color:var(--dim);margin-bottom:10px">Choose a group below and pay with gems or watch
+          a short ad</div>
+        <div class="sel-grid" id="bonus-muscle-grid" style="margin:0 0 10px">
+          <div class="sel-card" id="bmc-chest" onclick="togBonusMuscle('chest')">
+            <div class="sc-icon">💪</div>
+            <div class="sc-name">Chest</div>
+          </div>
+          <div class="sel-card" id="bmc-back" onclick="togBonusMuscle('back')">
+            <div class="sc-icon">🦸</div>
+            <div class="sc-name">Back</div>
+          </div>
+          <div class="sel-card" id="bmc-legs" onclick="togBonusMuscle('legs')">
+            <div class="sc-icon">🦵</div>
+            <div class="sc-name">Legs</div>
+          </div>
+          <div class="sel-card" id="bmc-core" onclick="togBonusMuscle('core')">
+            <div class="sc-icon">🎯</div>
+            <div class="sc-name">Core</div>
+          </div>
+          <div class="sel-card" id="bmc-shoulders" onclick="togBonusMuscle('shoulders')">
+            <div class="sc-icon">🔺</div>
+            <div class="sc-name">Shoulders</div>
+          </div>
+          <div class="sel-card" id="bmc-full" onclick="togBonusMuscle('full')">
+            <div class="sc-icon">⚡</div>
+            <div class="sc-name">Full Body</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:7px">
+          <button class="btn btn-gem" onclick="unlockBonus('gems')" style="flex:1">💎 <span
+              id="bonus-cost-lbl">40</span> Gems</button>
+          <button class="btn btn-warn" onclick="unlockBonus('ad')" style="flex:1">📺 Watch Ad</button>
+        </div>
+        <div class="err" id="bonus-err"></div>
+      </div>
+    </div>
+
+    <!-- ══ WORKOUT ════════════════════════════════════════════════════════ -->
+    <div class="screen" id="screen-workout" style="padding-bottom:105px">
+      <div class="wk-hdr">
+        <button class="btn btn-g" onclick="exitWorkout()" style="width:auto;padding:6px 12px;font-size:10px">✕
+          Exit</button>
+        <div style="text-align:right">
+          <div class="lbl">Exercise</div>
+          <div id="ex-counter" style="font-size:11px;font-weight:500">1/5</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:10px" id="prog-dots"></div>
+      <div class="ex-card">
+        <div class="ex-visual" id="ex-visual"><!-- SVG injected here --></div>
+        <div class="ex-overlay" id="ex-overlay">
+          <div><span class="grp-tag" id="ex-grp-tag">CHEST</span></div>
+          <div style="display:flex;justify-content:flex-end"><span class="int-tag" id="ex-int-tag"></span></div>
+        </div>
+        <div class="ex-body">
+          <h2 class="d" id="ex-name" style="font-size:22px;margin-bottom:5px"></h2>
+          <p class="hint" id="ex-desc"></p>
+          <div class="cues" id="ex-cues"></div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-cell">
+          <div class="lbl">Sets</div>
+          <div class="stat-val" id="sw-sets"></div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">Reps</div>
+          <div class="stat-val" id="sw-reps" style="font-size:13px;padding-top:5px"></div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">Rest</div>
+          <div class="stat-val" id="sw-rest" style="color:var(--dim)"></div>
+        </div>
+      </div>
+      <div class="lbl">Sets completed</div>
+      <div class="set-track" id="set-track"></div>
+      <div class="cta-bar"><button class="btn btn-p" id="btn-set" onclick="completeSet()">Complete Set →</button></div>
+    </div>
+
+    <!-- ══ REST ═══════════════════════════════════════════════════════════ -->
+    <div id="rest-ov">
+      <div class="lbl" style="letter-spacing:3px;margin-bottom:14px">REST</div>
+      <div class="rest-svg">
+        <svg width="170" height="170" viewBox="0 0 170 170">
+          <circle cx="85" cy="85" r="76" fill="none" stroke="#1e1e26" stroke-width="4" />
+          <circle id="rest-ring" cx="85" cy="85" r="76" fill="none" stroke="#c8f55a" stroke-width="4"
+            stroke-linecap="round" stroke-dasharray="478" stroke-dashoffset="0" transform="rotate(-90 85 85)"
+            style="transition:stroke-dashoffset 1s linear" />
+        </svg>
+        <div class="rest-n" id="rest-num">60</div>
+      </div>
+      <div style="font-size:9px;color:var(--dim);letter-spacing:2px">SECONDS</div>
+      <div id="next-hint" style="font-size:10px;color:var(--dim);margin-top:5px"></div>
+      <button class="btn btn-g" onclick="skipRest()" style="margin-top:20px;width:auto;padding:10px 28px">Skip
+        Rest</button>
+    </div>
+
+    <!-- ══ COMPLETE ════════════════════════════════════════════════════════ -->
+    <div class="screen" id="screen-complete">
+      <div class="comp-ctr">
+        <div class="lbl">Workout complete</div>
+        <div class="comp-big" id="c-streak">1</div>
+        <div class="d" style="font-size:18px;color:var(--dim)">DAY STREAK 🔥</div>
+        <div class="hint" id="c-stats" style="margin-top:9px;max-width:280px"></div>
+        <div class="gem-badge"><span>💎</span><span id="c-gems-val">+15 gems</span></div>
+        <div class="kcal-badge" id="c-kcal-badge" style="display:none"><span>🔥</span><span id="c-kcal-val">~180 kcal
+            burned</span></div>
+        <div id="c-week" style="margin-top:10px;font-size:10px;color:var(--mid)"></div>
+      </div>
+      <button class="btn btn-p" onclick="goHome()" style="margin-top:22px">Back to Dashboard →</button>
+    </div>
+
+    <!-- ══ QUIZ / CHALLENGES ══════════════════════════════════════════════ -->
+    <div class="screen" id="screen-quiz" style="padding-bottom:88px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div class="lbl">Daily</div>
+          <h2 class="d">Knowledge Quiz</h2>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--gem);font-weight:500">💎 <span id="qz-gems">0</span></div>
+          <div class="lives-row" id="lives-row" style="margin:6px 0 0;justify-content:flex-end"></div>
+        </div>
+      </div>
+      <div class="hint" style="margin-bottom:12px">Answer fitness questions to earn gems. 3 lives per day — wrong
+        answers cost a life. Can't be faked!</div>
+      <div id="quiz-list"></div>
+      <div id="no-lives-msg" style="display:none;text-align:center;padding:20px">
+        <div style="font-size:32px;margin-bottom:8px">💀</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">No lives remaining</div>
+        <div class="hint" style="margin-bottom:14px">You've used all 3 lives for today. Revive to keep answering.</div>
+        <div style="display:flex;gap:7px">
+          <button class="btn btn-gem" onclick="revive('gems')" style="flex:1">💎 <span id="revive-cost-lbl">50</span>
+            Gems</button>
+          <button class="btn btn-warn" onclick="revive('ad')" style="flex:1">📺 Watch Ad</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PROGRESS ════════════════════════════════════════════════════════ -->
+    <div class="screen" id="screen-progress" style="padding-bottom:88px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div class="lbl">Overview</div>
+          <h2 class="d">Progress</h2>
+        </div>
+        <div style="font-size:12px;color:var(--gem);font-weight:500">💎 <span id="prog-gems">0</span></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="lbl">Current streak</div>
+          <div class="stat-card-val" id="p-streak">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">Best streak</div>
+          <div class="stat-card-val" id="p-best">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">Total sessions</div>
+          <div class="stat-card-val" id="p-sessions">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">This week</div>
+          <div class="stat-card-val" id="p-week">0</div>
+        </div>
+      </div>
+      <!-- Weight / Body Graph -->
+      <div class="graph-wrap">
+        <div class="graph-title">Weight Trend (kg)</div>
+        <div id="weight-chart-area">
+          <div class="graph-empty" id="graph-empty">Add your weight in Profile → Body Metrics<br>to track your progress
+            here</div>
+          <svg id="weight-svg" style="display:none"></svg>
+        </div>
+      </div>
+      <!-- Body metrics summary -->
+      <div id="metrics-summary" style="display:none">
+        <div class="lbl" style="margin-bottom:6px">Body Metrics</div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="lbl">Weight</div>
+            <div class="metric-val" id="pm-weight">—<span class="metric-unit">kg</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="lbl">Height</div>
+            <div class="metric-val" id="pm-height">—<span class="metric-unit">cm</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="lbl">BMI</div>
+            <div class="metric-val" id="pm-bmi">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="lbl">Total kcal burned</div>
+            <div class="metric-val" id="pm-kcal">—<span class="metric-unit">kcal</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="lbl" style="margin-bottom:7px">Recent sessions</div>
+      <div id="hist-list">
+        <div class="hint" style="padding:10px 0">No sessions yet.</div>
+      </div>
+    </div>
+
+    <!-- ══ STORE ══════════════════════════════════════════════════════════ -->
+    <div class="screen" id="screen-store" style="padding-bottom:88px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div class="lbl">Gem</div>
+          <h2 class="d">Store</h2>
+        </div>
+        <div style="font-size:12px;color:var(--gem);font-weight:500">💎 <span id="store-gems">0</span></div>
+      </div>
+      <div class="store-note">Gems fund Streak Shields (🛡️ <strong>150 gems</strong> each — expensive by design to
+        build real discipline) and bonus workouts (40 gems). Earn gems by training and acing daily quizzes.</div>
+      <div class="lbl" style="margin-bottom:7px">Buy gems</div>
+      <div class="pkg-grid" id="pkg-grid"></div>
+      <div class="err" id="store-err"></div>
+      <div class="good" id="store-ok"></div>
+      <div class="divider"></div>
+      <div class="pref-sec">
+        <div class="pref-sec-title">🛡️ Streak Shield — 150 gems</div>
+        <div
+          style="background:var(--surface);border:1px solid rgba(90,180,255,.15);border-radius:var(--r);padding:12px;margin-bottom:12px">
+          <div class="shield-row">
+            <div>
+              <div style="font-size:11px;font-weight:500;margin-bottom:2px">Streak Shield</div>
+              <div style="font-size:10px;color:var(--mid)">Protects streak when you miss your weekly goal</div>
+            </div>
+            <div style="font-size:10px;color:var(--gem)"><span id="store-gems-disp">0</span> gems</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Owned (max 3)</div>
+              <div class="shield-dots" id="store-shield-dots"></div>
+            </div>
+            <button class="btn btn-gem" onclick="buyShield()" style="width:auto;padding:8px 13px;font-size:10px">Buy
+              🛡️</button>
+          </div>
+          <div class="err" id="shield-err"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PROFILE ════════════════════════════════════════════════════════ -->
+    <div class="screen" id="screen-profile" style="padding-bottom:88px">
+      <div style="margin-bottom:16px">
+        <div class="lbl">Account</div>
+        <h2 class="d">Profile</h2>
+      </div>
+      <div class="prof-hdr">
+        <div class="avatar" id="prof-avatar">?</div>
+        <div>
+          <div style="font-size:13px;font-weight:500" id="prof-name">—</div>
+          <div style="font-size:10px;color:var(--dim);margin-top:2px" id="prof-email">—</div>
+          <div style="display:flex;gap:10px;margin-top:4px">
+            <div style="font-size:10px;color:var(--gem)">💎 <span id="prof-gems">0</span></div>
+            <div style="font-size:10px;color:var(--mid)">🛡️ <span id="prof-shields">0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body Metrics -->
+      <div class="pref-sec">
+        <div class="pref-sec-title">Body Metrics</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
+          <div class="field" style="margin:0"><label>Weight (kg)</label><input type="number" id="m-weight"
+              placeholder="e.g. 70" step="0.1"></div>
+          <div class="field" style="margin:0"><label>Height (cm)</label><input type="number" id="m-height"
+              placeholder="e.g. 175"></div>
+          <div class="field" style="margin:0"><label>Age</label><input type="number" id="m-age" placeholder="e.g. 25">
+          </div>
+          <div class="field" style="margin:0"><label>Gender</label>
+            <select id="m-gender">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-safe" onclick="saveMetrics()" style="width:100%;padding:10px">Save Metrics →</button>
+        <div class="good" id="metrics-ok"></div>
+      </div>
+
+      <!-- Workout Prefs -->
+      <div class="pref-sec">
+        <div class="pref-sec-title">Workout Preferences</div>
+        <div class="pref-row"><span>Days per week</span><span class="pref-val" id="pref-days">—</span></div>
+        <div class="pref-row"><span>Intensity</span><span class="pref-val" id="pref-int">—</span></div>
+        <div class="pref-row"><span>Muscle groups</span><span class="pref-val" id="pref-muscles">—</span></div>
+      </div>
+      <div class="pref-sec">
+        <div class="pref-sec-title">Change Days</div>
+        <div class="day-grid" id="prof-day-grid" style="margin-top:0">
+          <button class="dbtn btn" onclick="pSelDays(1)">1</button><button class="dbtn btn"
+            onclick="pSelDays(2)">2</button>
+          <button class="dbtn btn" onclick="pSelDays(3)">3</button><button class="dbtn btn"
+            onclick="pSelDays(4)">4</button>
+          <button class="dbtn btn" onclick="pSelDays(5)">5</button><button class="dbtn btn"
+            onclick="pSelDays(6)">6</button>
+          <button class="dbtn btn" onclick="pSelDays(7)">7</button>
+        </div>
+      </div>
+      <div class="pref-sec">
+        <div class="pref-sec-title">Change Intensity</div>
+        <div class="sel-grid" style="margin-top:0">
+          <div class="sel-card" id="pic-beginner" onclick="pSelInt('beginner')">
+            <div class="ibadge beginner">Beginner</div>
+            <div class="sc-name">Starting Out</div>
+          </div>
+          <div class="sel-card" id="pic-intermediate" onclick="pSelInt('intermediate')">
+            <div class="ibadge intermediate">Intermediate</div>
+            <div class="sc-name">Solid Base</div>
+          </div>
+          <div class="sel-card" id="pic-advanced" onclick="pSelInt('advanced')">
+            <div class="ibadge advanced">Advanced</div>
+            <div class="sc-name">Pushing Hard</div>
+          </div>
+          <div class="sel-card" id="pic-athlete" onclick="pSelInt('athlete')">
+            <div class="ibadge athlete">Athlete</div>
+            <div class="sc-name">Elite</div>
+          </div>
+        </div>
+      </div>
+      <div class="pref-sec">
+        <div class="pref-sec-title">Change Muscle Groups</div>
+        <div class="sel-grid" style="margin-top:0">
+          <div class="sel-card" id="pmc-chest" onclick="pTogMuscle('chest')">
+            <div class="sc-icon">💪</div>
+            <div class="sc-name">Chest</div>
+          </div>
+          <div class="sel-card" id="pmc-back" onclick="pTogMuscle('back')">
+            <div class="sc-icon">🦸</div>
+            <div class="sc-name">Back</div>
+          </div>
+          <div class="sel-card" id="pmc-legs" onclick="pTogMuscle('legs')">
+            <div class="sc-icon">🦵</div>
+            <div class="sc-name">Legs</div>
+          </div>
+          <div class="sel-card" id="pmc-core" onclick="pTogMuscle('core')">
+            <div class="sc-icon">🎯</div>
+            <div class="sc-name">Core</div>
+          </div>
+          <div class="sel-card" id="pmc-shoulders" onclick="pTogMuscle('shoulders')">
+            <div class="sc-icon">🔺</div>
+            <div class="sc-name">Shoulders</div>
+          </div>
+          <div class="sel-card" id="pmc-full" onclick="pTogMuscle('full')">
+            <div class="sc-icon">⚡</div>
+            <div class="sc-name">Full Body</div>
+          </div>
+        </div>
+        <div class="err" id="pref-err"></div>
+      </div>
+      <button class="btn btn-p" onclick="saveProfile()" style="margin-bottom:7px">Save Changes →</button>
+      <div class="good" id="pref-ok"></div>
+      <div class="divider"></div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <button class="btn btn-d" onclick="confirmReset()">Reset All Data</button>
+        <button class="btn btn-g" onclick="doLogout()">Log Out</button>
+      </div>
+    </div>
+
+    <!-- ══ PURCHASE MODAL ══════════════════════════════════════════════════ -->
+    <div class="modal-bg" id="purchase-modal">
+      <div class="modal" style="text-align:center">
+        <button class="modal-close" onclick="closeModal('purchase-modal')">✕</button>
+        <div style="font-size:38px;margin:4px 0 8px">💎</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;margin-bottom:5px" id="pur-title">Confirm
+          Purchase</div>
+        <p class="hint" id="pur-desc" style="margin-bottom:14px"></p>
+        <div
+          style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:14px">
+          <div class="lbl">Amount due</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent)" id="pur-price"></div>
+          <div style="font-size:9px;color:var(--dim);margin-top:1px" id="pur-idr"></div>
+        </div>
+        <div class="store-note" style="text-align:left;margin-bottom:12px">⚠️ Demo app — no real payment. Gems credited
+          instantly for testing.</div>
+        <button class="btn btn-p" id="pur-btn" onclick="confirmPurchase()">Confirm Purchase →</button>
+        <div class="good" id="pur-ok" style="margin-top:7px"></div>
+      </div>
+    </div>
+
+    <!-- ══ AD MODAL (simulated) ═══════════════════════════════════════════ -->
+    <div class="modal-bg" id="ad-modal">
+      <div class="modal" style="text-align:center">
+        <div style="font-size:32px;margin-bottom:10px">📺</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;margin-bottom:6px">Watch Ad</div>
+        <p class="hint" style="margin-bottom:16px">Simulating a 5-second ad. In production this would show a real
+          rewarded ad.</p>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--accent);margin-bottom:8px"
+          id="ad-countdown">5</div>
+        <div class="hint" style="margin-bottom:16px" id="ad-status">Ad playing...</div>
+        <button class="btn btn-p" id="ad-done-btn" onclick="adFinished()" style="display:none">Claim Reward →</button>
+      </div>
+    </div>
+
+    <!-- ══ NAV ════════════════════════════════════════════════════════════ -->
+    <div id="nav">
+      <div class="nitem on" id="nav-home" onclick="navTo('home')">
+        <div class="ni">⊞</div>Today
+      </div>
+      <div class="nitem" id="nav-qz" onclick="navTo('qz')">
+        <div class="ni">🧠</div>Quiz
+      </div>
+      <div class="nitem" id="nav-prog" onclick="navTo('prog')">
+        <div class="ni">◈</div>Progress
+      </div>
+      <div class="nitem" id="nav-store" onclick="navTo('store')">
+        <div class="ni">💎</div>Store
+      </div>
+      <div class="nitem" id="nav-prof" onclick="navTo('prof')">
+        <div class="ni">◉</div>Profile
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── GLOBALS ──────────────────────────────────────────────────────────
+    let S = {}, WK = [], wkGroup = '', curInt = 'intermediate', isBonusWorkout = false, bonusMuscle = '';
+    let exIdx = 0, setIdx = 0, restInterval = null;
+    let adCallback = null;
+    let audioOn = true, AudioCtx = null;
+    let _days = 0, _muscles = [], _intensity = 'intermediate';
+    let _pDays = 3, _pMuscles = [], _pInt = 'intermediate';
+    let pendingPkgId = null;
+    let quizAnswered = {};  // qid → true/false
+
+    const IC = { beginner: '#5dd87a', intermediate: '#c8f55a', advanced: '#f5a623', athlete: '#ff4455' };
+    const DNAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const DHINTS = { 1: 'One focused session.', 2: 'Push-pull split.', 3: 'The sweet spot.', 4: 'Serious.', 5: 'Advanced.', 6: 'Athlete.', 7: 'Daily practice.' };
+
+    // ─── EXERCISE SVG ILLUSTRATIONS ───────────────────────────────────────
+    // Polished flat SVG for each emoji/movement type. No external URLs.
+    const EXERCISE_SVG = {
+      '💪': (c = '#c8f55a') => `<svg viewBox="0 0 400 195" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="195" fill="#0d0d10"/>
+    <rect x="0" y="160" width="400" height="35" fill="#111114"/>
+    <ellipse cx="200" cy="162" rx="120" ry="6" fill="#1a1a20"/>
+    <!-- floor person doing push-up -->
+    <rect x="80" y="135" width="240" height="6" rx="3" fill="#2a2a34"/>
+    <g transform="translate(200,100)">
+      <!-- arms -->
+      <line x1="-80" y1="35" x2="-40" y2="10" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+      <line x1="80" y1="35" x2="40" y2="10" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+      <!-- body -->
+      <rect x="-50" y="5" width="100" height="22" rx="8" fill="${c}"/>
+      <!-- head -->
+      <circle cx="0" cy="-4" r="14" fill="${c}"/>
+      <!-- legs -->
+      <line x1="-30" y1="27" x2="-30" y2="60" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+      <line x1="30" y1="27" x2="30" y2="60" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+    </g>
+    <text x="200" y="186" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="13" fill="#333" letter-spacing="3">PUSH-UP</text>
+  </svg>`,
+      '🦵': (c = '#c8f55a') => `<svg viewBox="0 0 400 195" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="195" fill="#0d0d10"/>
+    <rect x="0" y="155" width="400" height="40" fill="#111114"/>
+    <ellipse cx="200" cy="157" rx="70" ry="5" fill="#1a1a20"/>
+    <!-- squat figure -->
+    <g transform="translate(200,70)">
+      <circle cx="0" cy="-40" r="18" fill="${c}"/>
+      <rect x="-12" y="-22" width="24" height="35" rx="6" fill="${c}"/>
+      <!-- thighs spread for squat -->
+      <line x1="-10" y1="13" x2="-40" y2="55" stroke="${c}" stroke-width="11" stroke-linecap="round"/>
+      <line x1="10" y1="13" x2="40" y2="55" stroke="${c}" stroke-width="11" stroke-linecap="round"/>
+      <!-- shins -->
+      <line x1="-40" y1="55" x2="-25" y2="87" stroke="${c}" stroke-width="10" stroke-linecap="round"/>
+      <line x1="40" y1="55" x2="25" y2="87" stroke="${c}" stroke-width="10" stroke-linecap="round"/>
+      <!-- arms forward -->
+      <line x1="-12" y1="-5" x2="-50" y2="20" stroke="${c}" stroke-width="7" stroke-linecap="round"/>
+      <line x1="12" y1="-5" x2="50" y2="20" stroke="${c}" stroke-width="7" stroke-linecap="round"/>
+    </g>
+    <text x="200" y="186" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="13" fill="#333" letter-spacing="3">SQUAT</text>
+  </svg>`,
+      '📏': (c = '#c8f55a') => `<svg viewBox="0 0 400 195" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="195" fill="#0d0d10"/>
+    <rect x="0" y="140" width="400" height="55" fill="#111114"/>
+    <!-- plank figure -->
+    <g transform="translate(200,108)">
+      <circle cx="-95" cy="-4" r="14" fill="${c}"/>
+      <rect x="-90" y="2" width="180" height="16" rx="7" fill="${c}"/>
+      <line x1="-82" y1="18" x2="-82" y2="32" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+      <line x1="82" y1="18" x2="82" y2="32" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+      <!-- forearm -->
+      <line x1="-82" y1="32" x2="-110" y2="32" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+      <line x1="82" y1="18" x2="102" y2="32" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+    </g>
+    <text x="200" y="186" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="13" fill="#333" letter-spacing="3">PLANK</text>
+  </svg>`,
+      '🦸': (c = '#c8f55a') => `<svg viewBox="0 0 400 195" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="195" fill="#0d0d10"/>
+    <rect x="0" y="140" width="400" height="55" fill="#111114"/>
+    <!-- superman prone -->
+    <g transform="translate(200,108)">
+      <circle cx="-80" cy="-10" r="13" fill="${c}"/>
+      <rect x="-75" y="-2" width="150" height="14" rx="6" fill="${c}"/>
+      <!-- arms up -->
+      <line x1="-80" y1="-6" x2="-130" y2="-22" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+      <line x1="75" y1="-2" x2="130" y2="-18" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+      <!-- legs up -->
+      <line x1="60" y1="12" x2="95" y2="28" stroke="${c}" stroke-width="10" stroke-linecap="round"/>
+    </g>
+    <text x="200" y="186" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="13" fill="#333" letter-spacing="3">SUPERMAN</text>
+  </svg>`,
+      '🔺': (c = '#c8f55a') => `<svg viewBox="0 0 400 195" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="195" fill="#0d0d10"/>
+    <rect x="0" y="155" width="400" height="40" fill="#111114"/>
+    <!-- pike push-up: inverted V -->
+    <g transform="translate(200,80)">
+      <circle cx="0" cy="-20" r="14" fill="${c}"/>
+      <!-- torso going down -->
+      <line x1="0" y1="-6" x2="0" y2="30" stroke="${c}" stroke-width="10" stroke-linecap="round"/>
+      <!-- arms to floor -->
+      <line x1="-5" y1="28" x2="-60" y2="75" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+      <line x1="5" y1="28" x2="60" y2="75" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+      <!-- legs up -->
+      <line x1="0" y1="30" x2="-55" y2="5" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+      <line x1="0" y1="30" x2="55" y2="5" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+    </g>
+    <text x="200" y="186" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="13" fill="#333" letter-spacing="3">PIKE PUSH-UP</text>
+  </svg>`,
+      '💥': (c = '#c8f55a') => `<svg viewBox="0 0 400 195" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="195" fill="#0d0d10"/>
+    <!-- burst rays -->
+    ${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<line x1="200" y1="97" x2="${200 + Math.cos(a * Math.PI / 180) * 130}" y2="${97 + Math.sin(a * Math.PI / 180) * 130}" stroke="${c}22" stroke-width="2"/>`).join('')}
+    <!-- jump figure -->
+    <g transform="translate(200,70)">
+      <circle cx="0" cy="-42" r="16" fill="${c}"/>
+      <rect x="-10" y="-26" width="20" height="28" rx="6" fill="${c}"/>
+      <!-- arms up -->
+      <line x1="-10" y1="-16" x2="-38" y2="-40" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+      <line x1="10" y1="-16" x2="38" y2="-40" stroke="${c}" stroke-width="8" stroke-linecap="round"/>
+      <!-- legs tucked -->
+      <line x1="-8" y1="2" x2="-22" y2="30" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+      <line x1="8" y1="2" x2="22" y2="30" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+    </g>
+    <text x="200" y="186" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="13" fill="#333" letter-spacing="3">BURPEE</text>
+  </svg>`,
+      'default': (c = '#c8f55a', emoji = '💪') => `<svg viewBox="0 0 400 195" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="195" fill="#0d0d10"/>
+    <circle cx="200" cy="95" r="55" fill="${c}18" stroke="${c}33" stroke-width="1"/>
+    <text x="200" y="115" text-anchor="middle" font-size="52">${emoji}</text>
+    <text x="200" y="185" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="11" fill="#333" letter-spacing="3">CALISTHENICS</text>
+  </svg>`,
+    };
+
+    function getExSvg(ex) {
+      const color = ex.color || '#c8f55a';
+      const fn = EXERCISE_SVG[ex.emoji] || EXERCISE_SVG['default'];
+      return fn(color, ex.emoji);
+    }
+
+    // ─── AUDIO ────────────────────────────────────────────────────────────
+    function actx() { if (!AudioCtx) AudioCtx = new (window.AudioContext || window.webkitAudioContext)(); return AudioCtx; }
+    function beep(f = 440, d = .12, t = 'sine', v = .24) {
+      if (!audioOn) return;
+      try {
+        const o = actx().createOscillator(), g = actx().createGain(); o.connect(g); g.connect(actx().destination);
+        o.type = t; o.frequency.value = f; g.gain.setValueAtTime(v, actx().currentTime);
+        g.gain.exponentialRampToValueAtTime(.001, actx().currentTime + d); o.start(); o.stop(actx().currentTime + d);
+      } catch (e) { }
+    }
+    function pStart() { beep(660, .1, 'sine', .24); setTimeout(() => beep(880, .12, 'sine', .19), 110); setTimeout(() => beep(1100, .18, 'sine', .15), 240); }
+    function pSet() { beep(440, .1, 'sine', .22); setTimeout(() => beep(660, .14, 'sine', .18), 120); }
+    function pRest() { beep(880, .08, 'sine', .22); setTimeout(() => beep(1100, .08, 'sine', .17), 80); setTimeout(() => beep(1320, .16, 'sine', .13), 165); }
+    function pEx() { beep(550, .13, 'triangle', .17); }
+    function pTick() { beep(800, .05, 'sine', .13); }
+    function pWin() { [0, 110, 240, 400].forEach((d, i) => setTimeout(() => beep([660, 880, 1100, 1320][i], .2, 'sine', .17), d)); }
+    function pGem() { beep(1200, .07, 'sine', .16); setTimeout(() => beep(1600, .13, 'sine', .14), 95); }
+    function pWrong() { beep(200, .3, 'sawtooth', .15); }
+    function toggleAudio() { audioOn = !audioOn; document.getElementById('aud-btn').textContent = audioOn ? '🔊' : '🔇'; }
+
+    // ─── UTILS ────────────────────────────────────────────────────────────
+    function $(id) { return document.getElementById(id); }
+    function goTo(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      $(id).classList.add('active');
+      const mains = ['screen-home', 'screen-quiz', 'screen-progress', 'screen-store', 'screen-profile'];
+      $('nav').className = mains.includes(id) ? 'show' : '';
+    }
+    function setDis(id, v) { const b = $(id); b.disabled = v; b.style.opacity = v ? '.28' : '1'; }
+    function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+    async function api(url, body) {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : '{}' });
+      return r.json();
+    }
+    function openModal(id) { $(id).classList.add('show'); }
+    function closeModal(id) { $(id).classList.remove('show'); }
+
+    // ─── AUTH ─────────────────────────────────────────────────────────────
+    function switchTab(t) {
+      $('form-login').style.display = t === 'login' ? 'block' : 'none';
+      $('form-signup').style.display = t === 'signup' ? 'block' : 'none';
+      $('tab-login').className = 'atab' + (t === 'login' ? ' on' : '');
+      $('tab-signup').className = 'atab' + (t === 'signup' ? ' on' : '');
+    }
+    async function doLogin() {
+      $('l-err').textContent = '';
+      const r = await api('/api/auth/login', { email: $('l-email').value.trim(), password: $('l-pass').value });
+      if (r.error) { $('l-err').textContent = r.error; return; }
+      if (r.setup) { await loadState(); renderHome(); goTo('screen-home'); } else goTo('screen-days');
+    }
+    async function doSignup() {
+      $('s-err').textContent = '';
+      const r = await api('/api/auth/signup', { name: $('s-name').value.trim(), email: $('s-email').value.trim(), password: $('s-pass').value });
+      if (r.error) { $('s-err').textContent = r.error; return; }
+      goTo('screen-days');
+    }
+    async function doLogout() { await api('/api/auth/logout'); S = {}; goTo('screen-auth'); $('nav').className = ''; }
+
+    // ─── ONBOARDING ───────────────────────────────────────────────────────
+    function selDays(n) {
+      _days = n;
+      document.querySelectorAll('#day-grid .dbtn').forEach((b, i) => b.classList.toggle('on', i + 1 === n));
+      $('days-hint').textContent = DHINTS[n] || ''; setDis('btn-days', false);
+    }
+    function togMuscle(m) {
+      const i = _muscles.indexOf(m); if (i === -1) _muscles.push(m); else _muscles.splice(i, 1);
+      ['chest', 'back', 'legs', 'core', 'shoulders', 'full'].forEach(g => $('mc-' + g).classList.toggle('on', _muscles.includes(g)));
+      setDis('btn-muscles', _muscles.length === 0);
+    }
+    function selInt(l) {
+      _intensity = l;
+      ['beginner', 'intermediate', 'advanced', 'athlete'].forEach(x => $('ic-' + x).classList.toggle('on', x === l));
+    }
+    async function buildPlan() {
+      const r = await api('/api/setup', { days_per_week: _days, muscle_groups: _muscles, intensity: _intensity });
+      if (r.ok) { pStart(); await loadState(); renderHome(); goTo('screen-home'); }
+    }
+
+    // ─── STATE ────────────────────────────────────────────────────────────
+    async function loadState() { const r = await fetch('/api/state'); if (r.ok) S = await r.json(); }
+
+    // ─── HOME ─────────────────────────────────────────────────────────────
+    async function renderHome() {
+      await loadState();
+      $('streak-num').textContent = S.streak || 0;
+      $('hud-streak2').textContent = S.streak || 0;
+      $('hud-gems').textContent = S.gems || 0;
+      $('hud-shields').textContent = S.shields || 0;
+      $('risk-banner').style.display = (S.streak_at_risk && S.streak > 0) ? 'flex' : 'none';
+      const done = Object.keys(S.week_done || {}).length, goal = S.days_per_week || 3;
+      $('week-prog-text').textContent = `${done} / ${goal}`;
+      $('week-prog-fill').style.width = `${Math.min(100, Math.round(done / goal * 100))}%`;
+      const strip = $('week-strip'); strip.innerHTML = '';
+      const todayMon = (new Date().getDay() + 6) % 7;
+      for (let i = 0; i < 7; i++) {
+        const isDone = S.week_done && (String(i) in S.week_done);
+        const isToday = i === todayMon;
+        const d = document.createElement('div');
+        d.className = 'wday' + (isDone ? ' done' : isToday && !isDone ? ' today' : '');
+        d.innerHTML = `<div>${DNAMES[i]}</div><div class="wday-check">${isDone ? '✓' : ''}</div>`;
+        strip.appendChild(d);
+      }
+      const tw = await fetch('/api/workout/today'); const td = await tw.json();
+      if (td.error) return;
+      wkGroup = td.group; WK = td.exercises || []; curInt = td.intensity || 'intermediate';
+      $('grp-tag').textContent = wkGroup.toUpperCase();
+      $('int-tag').textContent = curInt;
+      $('int-tag').style.color = IC[curInt] || 'var(--dim)';
+      $('int-tag').style.borderColor = (IC[curInt] || 'var(--border)') + '44';
+      const alreadyDone = td.already_done;
+      $('home-lbl').textContent = alreadyDone ? 'Completed today' : 'Today';
+      $('home-title').textContent = alreadyDone ? 'Rest up 💤' : 'Your Plan';
+      $('home-cta').style.display = alreadyDone ? 'none' : 'block';
+      $('bonus-section').style.display = alreadyDone ? 'block' : 'none';
+      $('bonus-cost-lbl').textContent = td.bonus_cost || 40;
+      if (!alreadyDone) $('gems-preview').textContent = `+${td.gems_reward} gems`;
+      const list = $('home-ex-list'); list.innerHTML = '';
+      WK.forEach(ex => {
+        const el = document.createElement('div');
+        el.className = 'ex-row' + (alreadyDone ? ' done' : '');
+        el.innerHTML = `<div><div class="ex-title">${ex.emoji} ${ex.name}</div>
+      <div class="ex-meta">${ex.sets} sets · ${ex.reps} reps · ${ex.rest}s rest</div></div>
+      <div style="color:var(--dim);font-size:14px">›</div>`;
+        list.appendChild(el);
+      });
+    }
+
+    // ─── BONUS MUSCLE SELECT ──────────────────────────────────────────────
+    function togBonusMuscle(m) {
+      bonusMuscle = m;
+      ['chest', 'back', 'legs', 'core', 'shoulders', 'full'].forEach(g => $('bmc-' + g).classList.toggle('on', g === m));
+    }
+    async function unlockBonus(method) {
+      $('bonus-err').textContent = '';
+      if (!bonusMuscle) { $('bonus-err').textContent = 'Select a muscle group first.'; return; }
+      if (method === 'ad') {
+        showAd(async () => {
+          await _doUnlock('ad');
+        });
+        return;
+      }
+      await _doUnlock('gems');
+    }
+    async function _doUnlock(method) {
+      const r = await api('/api/workout/bonus_unlock', { method });
+      if (r.error) { $('bonus-err').textContent = r.error; return; }
+      S.gems = r.gems; $('hud-gems').textContent = r.gems;
+      // Load bonus muscle workout
+      const tw = await fetch('/api/workout/today'); const base = await tw.json();
+      const resp = await fetch('/api/state'); const st = await resp.json();
+      // Build workout from chosen bonus muscle using the intensity
+      const intensity = st.intensity || 'intermediate';
+      const allWk = await fetch('/api/state');
+      // We reference the workouts client-side from the rendered list — just reload group
+      isBonusWorkout = true;
+      wkGroup = bonusMuscle;
+      // Request exercises for bonus group by temporarily overriding
+      const bResp = await fetch(`/api/workout/today?bonus_group=${bonusMuscle}`);
+      const bData = await bResp.json();
+      WK = bData.exercises || base.exercises || [];
+      exIdx = 0; setIdx = 0; renderEx(); goTo('screen-workout'); pStart();
+    }
+
+    // ─── WORKOUT ──────────────────────────────────────────────────────────
+    function startWorkout(isBonus) {
+      isBonusWorkout = !!isBonus; exIdx = 0; setIdx = 0; renderEx(); goTo('screen-workout'); pStart();
+    }
+    function renderEx() {
+      const ex = WK[exIdx]; if (!ex) return;
+      $('ex-counter').textContent = `${exIdx + 1}/${WK.length}`;
+      $('prog-dots').innerHTML = WK.map((_, i) => `<div class="pdot ${i < exIdx ? 'done' : i === exIdx ? 'curr' : ''}"></div>`).join('');
+      // SVG illustration
+      $('ex-visual').innerHTML = getExSvg(ex);
+      $('ex-grp-tag').textContent = wkGroup.toUpperCase();
+      const it = $('ex-int-tag'); it.textContent = curInt;
+      it.style.background = IC[curInt] + '22'; it.style.color = IC[curInt]; it.style.border = `1px solid ${IC[curInt]}44`;
+      $('ex-name').textContent = ex.name;
+      $('ex-desc').textContent = ex.desc;
+      $('ex-cues').innerHTML = (ex.cues || []).map((c, i) => `<div class="cue"><span class="cue-n">${i + 1}</span><span>${c}</span></div>`).join('');
+      $('sw-sets').textContent = `${setIdx + 1}/${ex.sets}`;
+      $('sw-reps').textContent = ex.reps;
+      $('sw-rest').textContent = ex.rest + 's';
+      const track = $('set-track'); track.innerHTML = '';
+      for (let i = 0; i < ex.sets; i++) {
+        const d = document.createElement('div');
+        d.className = 'sdot' + (i < setIdx ? ' done' : i === setIdx ? ' curr' : '');
+        d.textContent = i < setIdx ? '✓' : i + 1; track.appendChild(d);
+      }
+      const lastSet = setIdx >= ex.sets - 1, lastEx = exIdx >= WK.length - 1;
+      $('btn-set').textContent = lastSet && lastEx ? 'Finish Workout ★' : lastSet ? 'Next Exercise →' : 'Complete Set →';
+    }
+    function completeSet() {
+      const ex = WK[exIdx]; pSet(); setIdx++;
+      if (setIdx < ex.sets) { renderEx(); startRest(ex.rest, WK[exIdx]?.name); }
+      else {
+        exIdx++; setIdx = 0;
+        if (exIdx < WK.length) { renderEx(); pEx(); startRest(ex.rest, WK[exIdx]?.name); }
+        else finishWorkout();
+      }
+    }
+    let restTotal = 60;
+    function startRest(secs, next) {
+      restTotal = secs; let t = secs; const circ = 478, ring = $('rest-ring');
+      ring.style.strokeDasharray = circ;
+      $('next-hint').textContent = next ? `Next: ${next}` : '';
+      $('rest-ov').classList.add('show');
+      const tick = () => {
+        $('rest-num').textContent = t; ring.style.strokeDashoffset = circ * (1 - t / restTotal);
+        if (t <= 3 && t > 0) pTick();
+        if (t <= 0) { clearInterval(restInterval); $('rest-ov').classList.remove('show'); pRest(); renderEx(); return; }
+        t--;
+      };
+      tick(); clearInterval(restInterval); restInterval = setInterval(tick, 1000);
+    }
+    function skipRest() { clearInterval(restInterval); $('rest-ov').classList.remove('show'); pRest(); renderEx(); }
+    function exitWorkout() { clearInterval(restInterval); $('rest-ov').classList.remove('show'); goTo('screen-home'); }
+
+    async function finishWorkout() {
+      clearInterval(restInterval); $('rest-ov').classList.remove('show');
+      const totalSets = WK.reduce((a, b) => a + (b.sets || 0), 0);
+      const r = await api('/api/workout/complete', { group: wkGroup, exercises: WK.length, sets: totalSets, is_bonus: isBonusWorkout });
+      pWin(); setTimeout(pGem, 600);
+      $('c-streak').textContent = r.streak;
+      $('c-stats').textContent = `${WK.length} exercises · ${totalSets} sets · ${cap(curInt)}${isBonusWorkout ? ' · Bonus' : ''}`;
+      $('c-gems-val').textContent = `+${r.gems_earned} gems earned`;
+      if (r.kcal > 0) {
+        $('c-kcal-badge').style.display = 'inline-flex';
+        $('c-kcal-val').textContent = `~${r.kcal} kcal burned`;
+      } else $('c-kcal-badge').style.display = 'none';
+      if (!isBonusWorkout) $('c-week').textContent = `Week: ${r.days_done}/${r.days_goal} days${r.days_done >= r.days_goal ? ' 🎉 Goal reached!' : ' — keep going!'}`;
+      else $('c-week').textContent = 'Bonus session done! Great work.';
+      goTo('screen-complete');
+    }
+    async function goHome() { await renderHome(); goTo('screen-home'); }
+
+    // ─── QUIZ ─────────────────────────────────────────────────────────────
+    async function renderQuiz() {
+      $('qz-gems').textContent = S.gems || 0;
+      const r = await fetch('/api/quiz/today'); const d = await r.json();
+      // Lives display
+      const livesRow = $('lives-row'); livesRow.innerHTML = '';
+      const max = d.max_lives || 3;
+      for (let i = 0; i < max; i++) {
+        const s = document.createElement('div');
+        s.className = 'life-dot' + (i >= (d.lives || 0) ? ' lost' : '');
+        s.textContent = '❤️'; livesRow.appendChild(s);
+      }
+      $('no-lives-msg').style.display = d.lives <= 0 ? 'block' : 'none';
+      $('quiz-list').style.display = d.lives <= 0 ? 'none' : 'block';
+      $('revive-cost-lbl').textContent = S.revive_cost || 50;
+      const list = $('quiz-list'); list.innerHTML = '';
+      quizAnswered = {};
+      (d.quizzes || []).forEach(q => {
+        const card = document.createElement('div');
+        card.className = 'quiz-card' + (q.completed ? ' done' : '');
+        const catColors = { 'Chest': '#c8f55a', 'Back': '#5ab4ff', 'Legs': '#6dc87a', 'Core': '#f5a623', 'Nutrition': '#ff9944', 'Recovery': '#a78bfa' };
+        const catColor = catColors[q.category] || '#c8f55a';
+        card.innerHTML = `
+      <div class="quiz-visual" style="border-bottom-color:${catColor}22">
+        <div style="font-size:32px">🧠</div>
+        <div style="position:absolute;top:8px;right:10px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;
+          color:${catColor};border:1px solid ${catColor}44;padding:2px 7px;border-radius:2px">${q.category}</div>
+        <div style="position:absolute;top:8px;left:10px;font-size:9px;color:var(--gem)">💎 +${q.gems}</div>
+      </div>
+      <div class="quiz-body">
+        ${q.completed
+            ? `<div class="quiz-done">✓ Completed — gems earned!</div>`
+            : `<div class="quiz-q">${q.question}</div>
+             <div class="quiz-opts" id="opts-${q.id}">
+               ${(q.options || []).map((opt, i) => `
+                 <button class="quiz-opt" onclick="answerQuiz('${q.id}',${i},this)" data-idx="${i}">${opt}</button>
+               `).join('')}
+             </div>
+             <div id="exp-${q.id}"></div>`}
+      </div>`;
+        list.appendChild(card);
+      });
+    }
+    async function answerQuiz(qid, answerIdx, btn) {
+      if (quizAnswered[qid]) return;
+      quizAnswered[qid] = true;
+      const r = await api('/api/quiz/answer', { quiz_id: qid, answer: answerIdx });
+      const optsEl = $(`opts-${qid}`);
+      const expEl = $(`exp-${qid}`);
+      if (r.correct) {
+        pGem();
+        btn.classList.add('correct');
+        expEl.innerHTML = `<div class="quiz-exp correct">✓ Correct! +${r.gems_earned} gems<br>${r.explanation}</div>`;
+        S.gems = r.gems; $('qz-gems').textContent = r.gems; $('hud-gems').textContent = r.gems;
+      } else {
+        pWrong();
+        btn.classList.add('wrong');
+        // Show correct answer
+        optsEl.querySelectorAll('.quiz-opt').forEach((b, i) => {
+          b.classList.add('disabled');
+          if (i === r.correct_answer) b.classList.add('correct');
+        });
+        expEl.innerHTML = `<div class="quiz-exp wrong">✗ Wrong. ${r.explanation}</div>`;
+      }
+      // Disable all options
+      optsEl.querySelectorAll('.quiz-opt').forEach(b => b.disabled = true);
+      // Update lives
+      const livesRow = $('lives-row');
+      livesRow.querySelectorAll('.life-dot').forEach((d, i) => {
+        d.classList.toggle('lost', i >= (r.lives || 0));
+      });
+      if (r.lives <= 0) {
+        setTimeout(() => { $('quiz-list').style.display = 'none'; $('no-lives-msg').style.display = 'block'; }, 800);
+      }
+    }
+    async function revive(method) {
+      if (method === 'ad') { showAd(async () => { await _doRevive('ad'); }); return; }
+      await _doRevive('gems');
+    }
+    async function _doRevive(method) {
+      const r = await api('/api/quiz/revive', { method });
+      if (r.error) { alert(r.error); return; }
+      pGem(); S.gems = r.gems; await renderQuiz();
+    }
+
+    // ─── PROGRESS ─────────────────────────────────────────────────────────
+    async function renderProgress() {
+      $('p-streak').textContent = S.streak || 0;
+      $('p-best').textContent = S.best_streak || 0;
+      $('p-sessions').textContent = S.total_sessions || 0;
+      $('p-week').textContent = Object.keys(S.week_done || {}).length;
+      $('prog-gems').textContent = S.gems || 0;
+      // Weight log
+      const wr = await fetch('/api/progress/weight_log'); const wd = await wr.json();
+      const log = wd.log || [];
+      const metrics = wd.metrics || {};
+      if (log.length >= 2) {
+        $('graph-empty').style.display = 'none';
+        $('weight-svg').style.display = 'block';
+        drawWeightGraph(log);
+      } else {
+        $('graph-empty').style.display = 'flex';
+        $('weight-svg').style.display = 'none';
+      }
+      if (metrics.weight_kg) {
+        $('metrics-summary').style.display = 'block';
+        $('pm-weight').innerHTML = `${metrics.weight_kg}<span class="metric-unit"> kg</span>`;
+        $('pm-height').innerHTML = `${metrics.height_cm || '—'}<span class="metric-unit"> cm</span>`;
+        const bmi = metrics.weight_kg && metrics.height_cm ? +(metrics.weight_kg / ((metrics.height_cm / 100) ** 2)).toFixed(1) : null;
+        $('pm-bmi').innerHTML = bmi ? `${bmi}` : '—';
+        const totalKcal = (S.history || []).reduce((a, b) => a + (b.kcal || 0), 0);
+        $('pm-kcal').innerHTML = `${totalKcal.toLocaleString()}<span class="metric-unit"> kcal</span>`;
+      } else $('metrics-summary').style.display = 'none';
+      // History
+      const hist = $('hist-list');
+      const h = (S.history || []).slice().reverse().slice(0, 15);
+      if (!h.length) { hist.innerHTML = '<div class="hint" style="padding:10px 0">No sessions yet.</div>'; return; }
+      hist.innerHTML = h.map(e => `
+    <div class="hist-item">
+      <div>
+        <div style="font-weight:500;font-size:11px">${(e.group || '').toUpperCase()}${e.bonus ? ' <span style="font-size:8px;color:var(--warn)">[BONUS]</span>' : ''}</div>
+        <div class="hint" style="margin-top:1px">${e.date} · ${cap(e.intensity || '')}${e.kcal ? ` · 🔥${e.kcal}kcal` : ''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <div class="pill g">${e.exercises} ex · ${e.sets} sets</div>
+        <div class="pill b">+${e.gems || 0} 💎</div>
+      </div>
+    </div>`).join('');
+    }
+
+    function drawWeightGraph(log) {
+      const svg = $('weight-svg');
+      const W = svg.clientWidth || 380, H = 130;
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      const weights = log.map(l => l.predicted_kg || l.weight_kg);
+      const minW = Math.min(...weights) - 0.5;
+      const maxW = Math.max(...weights) + 0.5;
+      const pad = { l: 36, r: 12, t: 10, b: 22 };
+      const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
+      const xScale = (i) => pad.l + i * (cW / (log.length - 1));
+      const yScale = (w) => pad.t + cH - (((w - minW) / (maxW - minW)) * cH);
+
+      let pathD = log.map((l, i) => `${i === 0 ? 'M' : 'L'}${xScale(i)},${yScale(l.predicted_kg || l.weight_kg)}`).join(' ');
+      let areaD = pathD + ` L${xScale(log.length - 1)},${H - pad.b} L${xScale(0)},${H - pad.b} Z`;
+
+      svg.innerHTML = `
+    <defs>
+      <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#c8f55a" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="#c8f55a" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- grid lines -->
+    ${[0, .33, .66, 1].map(t => {
+        const y = pad.t + t * cH;
+        const w = minW + (1 - t) * (maxW - minW);
+        return `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="#26262e" stroke-width="1"/>
+              <text x="${pad.l - 4}" y="${y + 3}" text-anchor="end" font-family="DM Mono" font-size="8" fill="#5a5a6e">${w.toFixed(1)}</text>`;
+      }).join('')}
+    <!-- area -->
+    <path d="${areaD}" fill="url(#wg)"/>
+    <!-- line -->
+    <path d="${pathD}" fill="none" stroke="#c8f55a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- dots -->
+    ${log.map((l, i) => {
+        const x = xScale(i), y = yScale(l.predicted_kg || l.weight_kg);
+        const label = i === 0 || i === log.length - 1 ? `<text x="${x}" y="${y - 6}" text-anchor="middle" font-family="DM Mono" font-size="8" fill="#c8f55a">${(l.predicted_kg || l.weight_kg).toFixed(1)}</text>` : '';
+        return `<circle cx="${x}" cy="${y}" r="3" fill="#c8f55a"/>${label}`;
+      }).join('')}
+    <!-- x-axis labels -->
+    ${log.filter((_, i) => i === 0 || i === Math.floor(log.length / 2) || i === log.length - 1).map((l, _, arr) => {
+        const idx = log.indexOf(l);
+        const x = xScale(idx);
+        const dt = l.date.slice(4);  // "Jan 05" → "05"
+        return `<text x="${x}" y="${H - 4}" text-anchor="middle" font-family="DM Mono" font-size="7.5" fill="#5a5a6e">${l.date.slice(0, 6)}</text>`;
+      }).join('')}
+  `;
+    }
+
+    // ─── STORE ────────────────────────────────────────────────────────────
+    function renderStore() {
+      $('store-gems').textContent = S.gems || 0;
+      $('store-gems-disp').textContent = S.gems || 0;
+      const dots = $('store-shield-dots'); dots.innerHTML = '';
+      for (let i = 0; i < (S.shield_max || 3); i++) {
+        const d = document.createElement('div');
+        d.className = 'sdot2' + (i < (S.shields || 0) ? ' owned' : '');
+        d.textContent = i < (S.shields || 0) ? '🛡️' : '○';
+        dots.appendChild(d);
+      }
+      const grid = $('pkg-grid'); grid.innerHTML = '';
+      (S.gem_packages || []).forEach(pkg => {
+        const d = document.createElement('div');
+        d.className = 'pkg-card' + (pkg.popular ? ' pop' : '');
+        d.onclick = () => openPurchase(pkg.id, pkg.label, pkg.gems, pkg.usd, pkg.price);
+        d.innerHTML = `${pkg.popular ? '<div class="pkg-pop">Most Popular</div>' : ''}
+      <div style="font-size:9px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-top:${pkg.popular ? 12 : 0}px">${pkg.label}</div>
+      <div class="pkg-gems">💎 ${pkg.gems}</div>
+      <div class="pkg-price">${pkg.usd}</div>
+      <div class="pkg-idr">${pkg.price}</div>`;
+        grid.appendChild(d);
+      });
+    }
+    function openPurchase(id, label, gems, usd, idr) {
+      pendingPkgId = id;
+      $('pur-title').textContent = `${label} Pack`;
+      $('pur-desc').textContent = `${gems} gems will be added to your account.`;
+      $('pur-price').textContent = usd;
+      $('pur-idr').textContent = idr;
+      $('pur-ok').textContent = '';
+      openModal('purchase-modal');
+    }
+    async function confirmPurchase() {
+      if (!pendingPkgId) return;
+      $('pur-btn').disabled = true; $('pur-btn').textContent = 'Processing...';
+      const r = await api('/api/gems/purchase', { package_id: pendingPkgId });
+      $('pur-btn').disabled = false; $('pur-btn').textContent = 'Confirm Purchase →';
+      if (r.ok) {
+        pGem(); S.gems = r.gems;
+        $('pur-ok').textContent = `✓ +${r.gems_added} gems! Balance: ${r.gems}`;
+        $('store-gems').textContent = r.gems; $('hud-gems').textContent = r.gems;
+        renderStore(); setTimeout(() => closeModal('purchase-modal'), 2000);
+      }
+    }
+    async function buyShield() {
+      $('shield-err').textContent = '';
+      const r = await api('/api/gems/buy_shield');
+      if (r.error) { $('shield-err').textContent = r.error; return; }
+      pGem(); S.gems = r.gems; S.shields = r.shields; renderStore(); $('hud-gems').textContent = r.gems;
+    }
+
+    // ─── PROFILE ──────────────────────────────────────────────────────────
+    function renderProfile() {
+      $('prof-name').textContent = S.name || '';
+      $('prof-email').textContent = S.email || '';
+      $('prof-avatar').textContent = (S.name || '?')[0].toUpperCase();
+      $('prof-gems').textContent = S.gems || 0;
+      $('prof-shields').textContent = S.shields || 0;
+      $('pref-days').textContent = (S.days_per_week || 0) + ' days';
+      $('pref-int').textContent = cap(S.intensity || 'intermediate');
+      $('pref-muscles').textContent = (S.muscle_groups || []).map(cap).join(', ') || '—';
+      const m = S.metrics || {};
+      if (m.weight_kg) $('m-weight').value = m.weight_kg;
+      if (m.height_cm) $('m-height').value = m.height_cm;
+      if (m.age) $('m-age').value = m.age;
+      if (m.gender) $('m-gender').value = m.gender;
+      _pDays = S.days_per_week || 3; _pMuscles = [...(S.muscle_groups || [])]; _pInt = S.intensity || 'intermediate';
+      syncPDays(); syncPMuscles(); syncPInt();
+    }
+    async function saveMetrics() {
+      $('metrics-ok').textContent = '';
+      const r = await api('/api/metrics', {
+        weight_kg: parseFloat($('m-weight').value) || null,
+        height_cm: parseFloat($('m-height').value) || null,
+        age: parseInt($('m-age').value) || null,
+        gender: $('m-gender').value
+      });
+      if (r.ok) { $('metrics-ok').textContent = 'Metrics saved ✓'; S.metrics = r.metrics; setTimeout(() => $('metrics-ok').textContent = '', 2200); }
+    }
+    function pSelDays(n) { _pDays = n; syncPDays(); }
+    function syncPDays() { document.querySelectorAll('#prof-day-grid .dbtn').forEach((b, i) => b.classList.toggle('on', i + 1 === _pDays)); }
+    function pTogMuscle(m) { const i = _pMuscles.indexOf(m); if (i === -1) _pMuscles.push(m); else _pMuscles.splice(i, 1); syncPMuscles(); }
+    function syncPMuscles() { ['chest', 'back', 'legs', 'core', 'shoulders', 'full'].forEach(g => $('pmc-' + g).classList.toggle('on', _pMuscles.includes(g))); }
+    function pSelInt(l) { _pInt = l; syncPInt(); }
+    function syncPInt() { ['beginner', 'intermediate', 'advanced', 'athlete'].forEach(l => $('pic-' + l).classList.toggle('on', l === _pInt)); }
+    async function saveProfile() {
+      $('pref-err').textContent = ''; $('pref-ok').textContent = '';
+      if (!_pMuscles.length) { $('pref-err').textContent = 'Select at least one muscle group.'; return; }
+      const r = await api('/api/profile', { days_per_week: _pDays, muscle_groups: _pMuscles, intensity: _pInt });
+      if (r.ok) { $('pref-ok').textContent = 'Saved ✓'; await loadState(); renderProfile(); setTimeout(() => $('pref-ok').textContent = '', 2000); }
+    }
+
+    // ─── SHIELDS ──────────────────────────────────────────────────────────
+    async function useShield() {
+      if (S.shields < 1) return;
+      if (!confirm('Use 1 shield to protect your streak?')) return;
+      const r = await api('/api/gems/use_shield');
+      if (r.ok) { S.streak = r.streak; S.shields = r.shields; S.streak_at_risk = false; pGem(); await renderHome(); }
+    }
+
+    // ─── AD SIMULATION ────────────────────────────────────────────────────
+    function showAd(callback) {
+      adCallback = callback;
+      let t = 5;
+      $('ad-countdown').textContent = t;
+      $('ad-status').textContent = 'Ad playing...';
+      $('ad-done-btn').style.display = 'none';
+      openModal('ad-modal');
+      const iv = setInterval(() => {
+        t--;
+        $('ad-countdown').textContent = t;
+        if (t <= 0) {
+          clearInterval(iv);
+          $('ad-status').textContent = 'Ad complete! Claim your reward.';
+          $('ad-done-btn').style.display = 'inline-flex';
+        }
+      }, 1000);
+    }
+    function adFinished() {
+      closeModal('ad-modal');
+      if (adCallback) { const cb = adCallback; adCallback = null; cb(); }
+    }
+
+    // ─── NAV ──────────────────────────────────────────────────────────────
+    function navTo(tab) {
+      ['home', 'qz', 'prog', 'store', 'prof'].forEach(t => $('nav-' + t).classList.remove('on'));
+      $('nav-' + tab).classList.add('on');
+      if (tab === 'home') { renderHome(); goTo('screen-home'); }
+      else if (tab === 'qz') { renderQuiz(); goTo('screen-quiz'); }
+      else if (tab === 'prog') { renderProgress(); goTo('screen-progress'); }
+      else if (tab === 'store') { renderStore(); goTo('screen-store'); }
+      else { renderProfile(); goTo('screen-profile'); }
+    }
+
+    // ─── RESET ────────────────────────────────────────────────────────────
+    async function confirmReset() {
+      if (!confirm('Reset all data? Your account stays but all workout history, streak, gems and metrics are cleared.')) return;
+      await api('/api/reset'); S = {}; goTo('screen-days'); $('nav').className = '';
+    }
+
+    // ─── INIT ─────────────────────────────────────────────────────────────
+    (async () => {
+      const r = await fetch('/api/auth/me'); const d = await r.json();
+      if (!d.logged_in) { goTo('screen-auth'); return; }
+      if (d.setup) { await loadState(); renderHome(); goTo('screen-home'); }
+      else goTo('screen-days');
+    })();
+  </script>
+</body>
+
+</html>

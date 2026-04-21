@@ -1,0 +1,219 @@
+{
+  "377e29ae-8d52-4e38-8e14-f959a0e80738": {
+    "id": "377e29ae-8d52-4e38-8e14-f959a0e80738",
+    "email": "bry4nels@gmail.com",
+    "name": "bryan",
+    "password": "521e8b86e2cf203add24a539a728719bf57a6fea57f89bcf409095505ea782a6",
+    "setup": true,
+    "days_per_week": 3,
+    "muscle_groups": [
+      "chest",
+      "back",
+      "legs",
+      "shoulders"
+    ],
+    "intensity": "beginner",
+    "plan": [
+      "chest",
+      "back",
+      "legs"
+    ],
+    "streak": 3,
+    "best_streak": 3,
+    "total_sessions": 9,
+    "history": [
+      {
+        "date": "Apr 18, 2026",
+        "group": "back",
+        "exercises": 5,
+        "sets": 24,
+        "intensity": "athlete"
+      },
+      {
+        "date": "Apr 20, 2026",
+        "group": "chest",
+        "exercises": 5,
+        "sets": 22,
+        "intensity": "athlete"
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "back",
+        "exercises": 5,
+        "sets": 24,
+        "intensity": "athlete",
+        "gems": 30
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "back",
+        "exercises": 5,
+        "sets": 11,
+        "intensity": "beginner",
+        "gems": 10,
+        "bonus": true
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "back",
+        "exercises": 5,
+        "sets": 11,
+        "intensity": "beginner",
+        "gems": 10,
+        "bonus": true
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "chest",
+        "exercises": 5,
+        "sets": 11,
+        "intensity": "beginner",
+        "gems": 10,
+        "kcal": 0,
+        "bonus": true
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "full",
+        "exercises": 5,
+        "sets": 11,
+        "intensity": "beginner",
+        "gems": 10,
+        "kcal": 0,
+        "bonus": true
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "legs",
+        "exercises": 5,
+        "sets": 11,
+        "intensity": "beginner",
+        "gems": 10,
+        "kcal": 0,
+        "bonus": true
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "legs",
+        "exercises": 5,
+        "sets": 11,
+        "intensity": "beginner",
+        "gems": 10,
+        "kcal": 93,
+        "bonus": true
+      }
+    ],
+    "week_done": {
+      "0": true,
+      "1": true
+    },
+    "last_week": "2026-04-20",
+    "created_at": "2026-04-18",
+    "gems": 955,
+    "streak_at_risk": false,
+    "shields": 3,
+    "challenges_completed_today": [
+      "c05",
+      "c07"
+    ],
+    "challenges_date": "2026-04-21",
+    "bonus_workout_date": "2026-04-21",
+    "bonus_workouts_today": 6,
+    "quiz_lives": 3,
+    "quiz_lives_date": "2026-04-21",
+    "quiz_completed_today": [],
+    "quiz_date": "2026-04-21",
+    "metrics": {
+      "weight_kg": 70.0,
+      "height_cm": 175.0,
+      "age": 22,
+      "gender": "male"
+    },
+    "weight_log": [
+      {
+        "date": "2026-04-21",
+        "weight_kg": 70.0,
+        "kcal_burned": 93,
+        "predicted_kg": 69.99
+      }
+    ]
+  },
+  "dcba5c1b-dd44-4748-8fc4-4cc16391fdba": {
+    "id": "dcba5c1b-dd44-4748-8fc4-4cc16391fdba",
+    "email": "wea",
+    "name": "sda",
+    "password": "cc2e018aa6eb9612ccd027bbdcdc9b8c8d351789f14cae4d688a876c18938235",
+    "setup": true,
+    "days_per_week": 6,
+    "muscle_groups": [
+      "back",
+      "chest",
+      "legs",
+      "core",
+      "shoulders",
+      "full"
+    ],
+    "intensity": "athlete",
+    "plan": [
+      "back",
+      "chest",
+      "legs",
+      "core",
+      "shoulders",
+      "full"
+    ],
+    "streak": 0,
+    "best_streak": 0,
+    "streak_at_risk": true,
+    "gems": 60,
+    "shields": 0,
+    "total_sessions": 2,
+    "history": [
+      {
+        "date": "Apr 21, 2026",
+        "group": "chest",
+        "exercises": 5,
+        "sets": 22,
+        "intensity": "athlete",
+        "gems": 30,
+        "kcal": 261,
+        "bonus": false
+      },
+      {
+        "date": "Apr 21, 2026",
+        "group": "legs",
+        "exercises": 5,
+        "sets": 22,
+        "intensity": "athlete",
+        "gems": 30,
+        "kcal": 261,
+        "bonus": true
+      }
+    ],
+    "week_done": {
+      "1": true
+    },
+    "last_week": "2026-04-20",
+    "quiz_completed_today": [],
+    "quiz_date": "2026-04-21",
+    "quiz_lives": 3,
+    "quiz_lives_date": "2026-04-21",
+    "bonus_workout_date": "2026-04-21",
+    "bonus_workouts_today": 1,
+    "metrics": {
+      "weight_kg": 70.0,
+      "height_cm": 175.0,
+      "age": 22,
+      "gender": "male"
+    },
+    "weight_log": [
+      {
+        "date": "2026-04-21",
+        "weight_kg": 70.0,
+        "kcal_burned": 522,
+        "predicted_kg": 69.97
+      }
+    ],
+    "created_at": "2026-04-21"
+  }
+}
