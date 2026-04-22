@@ -1,42 +1,36 @@
 """
-STREAK — Calisthenics App  v5
-Run:  python app.py  |  Open: http://localhost:5000
-
-v5 changes:
-- Shield cost raised to 150 gems (expensive / discipline-first)
-- Bonus workout: user picks muscle group, costs 40 gems OR watch ad
-- Daily challenges are fitness QUIZZES (3 lives, can't fake)
-- Body metrics tracking (weight, height, age, gender)
-- Calorie burn estimation per workout + predicted weight change
-- Weight-over-time graph data endpoint
-- All exercise visuals replaced with reliable inline SVG illustrations
+StreakFit — Calisthenics App v1
+Run:   python app.py
+Open:  http://localhost:5000
 """
 
 from flask import Flask, render_template, jsonify, request, session
-import json, os, datetime, hashlib, uuid, random, math
+import json, os, datetime, hashlib, uuid, random
 
 app = Flask(__name__)
-app.secret_key = "streak_v5_secret_xk92"
-USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+app.secret_key = "streakfit_v1_xk92_secret"
+DATA_DIR   = os.path.dirname(os.path.abspath(__file__))
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
 
-# ─── ECONOMY ─────────────────────────────────────────────────────────────────
-GEMS_PER_WORKOUT     = 10
-SHIELD_COST          = 150   # expensive — builds discipline
-SHIELD_MAX           = 3
-BONUS_WORKOUT_COST   = 40    # gems to unlock bonus workout
-CHALLENGE_DAILY_LIMIT = 3
-CHALLENGE_LIVES      = 3
-REVIVE_COST          = 50    # gems to revive after losing all lives
+# ─── ECONOMY ──────────────────────────────────────────────────────────
+GEMS_PER_WORKOUT   = 10
+WEEK_REWARD        = 50      # bonus gems for completing weekly goal
+SHIELD_COST        = 150
+SHIELD_MAX         = 2       # max 2 shields
+BONUS_COST         = 40
+REVIVE_COST        = 50
+QUIZ_LIVES         = 2
+QUIZ_DAILY_LIMIT   = 1       # 1 quiz per day only
 
-# ─── GEM PACKAGES ────────────────────────────────────────────────────────────
+# ─── GEM PACKAGES ─────────────────────────────────────────────────────
 GEM_PACKAGES = [
-    {"id":"starter",  "gems":50,   "price":"Rp 15.000",  "usd":"$0.99",  "label":"Starter",  "popular":False},
-    {"id":"boost",    "gems":150,  "price":"Rp 39.000",  "usd":"$2.99",  "label":"Boost",    "popular":True},
-    {"id":"power",    "gems":350,  "price":"Rp 79.000",  "usd":"$6.99",  "label":"Power",    "popular":False},
-    {"id":"champion", "gems":800,  "price":"Rp 159.000", "usd":"$14.99", "label":"Champion", "popular":False},
+    {"id":"starter",  "gems":50,  "price":"Rp 15.000",  "usd":"$0.99",  "label":"Starter",  "popular":False},
+    {"id":"boost",    "gems":150, "price":"Rp 39.000",  "usd":"$2.99",  "label":"Boost",    "popular":True},
+    {"id":"power",    "gems":350, "price":"Rp 79.000",  "usd":"$6.99",  "label":"Power",    "popular":False},
+    {"id":"champion", "gems":800, "price":"Rp 159.000", "usd":"$14.99", "label":"Champion", "popular":False},
 ]
 
-# ─── INTENSITY ────────────────────────────────────────────────────────────────
+# ─── INTENSITY ────────────────────────────────────────────────────────
 INTENSITY_CONFIG = {
     "beginner":     {"sets_mult":0.75,"rest_mult":1.4, "label":"Beginner",    "gems_bonus":0,  "met":3.5},
     "intermediate": {"sets_mult":1.0, "rest_mult":1.0, "label":"Intermediate","gems_bonus":5,  "met":5.0},
@@ -44,209 +38,245 @@ INTENSITY_CONFIG = {
     "athlete":      {"sets_mult":1.5, "rest_mult":0.6, "label":"Athlete",     "gems_bonus":20, "met":8.0},
 }
 
-# ─── QUIZ CHALLENGES ─────────────────────────────────────────────────────────
-# True/false + multiple choice fitness quizzes — cannot be faked
+# ─── QUIZ BANK (60 questions, easy + varied) ──────────────────────────
 QUIZ_BANK = [
-    # Anatomy
-    {"id":"q01","question":"Which muscle group do push-ups primarily target?",
-     "options":["Biceps","Chest (pectorals)","Quadriceps","Hamstrings"],"answer":1,"gems":15,
-     "explanation":"Push-ups primarily work the pectoralis major (chest), along with the triceps and front deltoids."},
-    {"id":"q02","question":"What does 'supinated grip' mean?",
-     "options":["Palms facing away","Palms facing toward you","Neutral palms","Alternating grip"],"answer":1,"gems":15,
-     "explanation":"Supinated = palms facing you (toward your body). This is the chin-up grip."},
-    {"id":"q03","question":"The hollow body hold is a foundational exercise for which sport?",
-     "options":["Swimming","Gymnastics","Tennis","Cycling"],"answer":1,"gems":15,
-     "explanation":"Hollow body is a core gymnastics position — the base for virtually all gymnastic movements."},
-    {"id":"q04","question":"Which muscle does the plank primarily NOT train?",
-     "options":["Transverse abdominis","Erector spinae","Biceps femoris","Biceps brachii"],"answer":3,"gems":15,
-     "explanation":"The biceps brachii (arm flexor) is not significantly recruited during a plank."},
-    {"id":"q05","question":"What is the recommended rest between heavy strength sets?",
-     "options":["15–30 seconds","1–2 minutes","5–10 minutes","No rest needed"],"answer":1,"gems":15,
-     "explanation":"For strength training, 1–3 minutes rest allows ATP (energy) stores to partially replenish."},
-    # Nutrition
-    {"id":"q06","question":"Approximately how many calories does 1 gram of protein provide?",
-     "options":["4 kcal","7 kcal","9 kcal","2 kcal"],"answer":0,"gems":15,
-     "explanation":"Protein and carbohydrates both provide 4 kcal per gram. Fat provides 9 kcal per gram."},
-    {"id":"q07","question":"Which macronutrient is the body's preferred fuel during high-intensity exercise?",
-     "options":["Fat","Protein","Carbohydrates","Water"],"answer":2,"gems":15,
-     "explanation":"Carbohydrates (as glycogen) are the primary fuel for high-intensity exercise. Fat fuels low-intensity work."},
-    {"id":"q08","question":"What does 'TDEE' stand for in nutrition?",
-     "options":["Total Daily Energy Expenditure","Timed Daily Exercise Effort","Targeted Diet & Exercise Estimation","Total Dietary Enzyme Efficiency"],"answer":0,"gems":15,
-     "explanation":"TDEE = Total Daily Energy Expenditure — how many calories you burn in a full day including activity."},
-    # Recovery
-    {"id":"q09","question":"Muscle soreness 24–48 hours after training is called:",
-     "options":["Acute muscle strain","DOMS (Delayed Onset Muscle Soreness)","Myofascial pain syndrome","Rhabdomyolysis"],"answer":1,"gems":15,
-     "explanation":"DOMS is normal micro-damage from training. It peaks 24–72 hours post-workout and is a sign of adaptation."},
-    {"id":"q10","question":"How much sleep do most adults need for optimal muscle recovery?",
-     "options":["4–5 hours","5–6 hours","7–9 hours","10–12 hours"],"answer":2,"gems":15,
-     "explanation":"7–9 hours is the recommended range. Growth hormone (key for muscle repair) is predominantly released during deep sleep."},
-    # Form & Technique
-    {"id":"q11","question":"In a correct squat, where should your knees track?",
-     "options":["Straight forward regardless of feet","Over the middle toe / in line with toes","Inward to activate adductors","Behind the heel line"],"answer":1,"gems":15,
-     "explanation":"Knees should track over the middle toe — in the same direction your foot is pointing."},
-    {"id":"q12","question":"During a push-up, your body should form:",
-     "options":["A slight arch at the lower back","A rigid straight line from head to heel","A pike shape with hips raised","A curve with chin tucked hard"],"answer":1,"gems":15,
-     "explanation":"A rigid plank position from head to heel — no hip sag and no piking."},
-    {"id":"q13","question":"Which cue correctly describes the dead bug exercise?",
-     "options":["Arch your lower back as you extend","Lower back must stay flat on the floor","Breathe in short bursts for speed","Extend both arms and legs simultaneously"],"answer":1,"gems":15,
-     "explanation":"Lower back must stay pressed flat into the floor throughout every single rep. If it lifts — you've gone too far."},
-    {"id":"q14","question":"What does 'eccentric' mean in strength training?",
-     "options":["The concentric (lifting) phase","The phase where the muscle lengthens under load","Exercising with maximum speed","A type of isometric hold"],"answer":1,"gems":15,
-     "explanation":"Eccentric = muscle lengthening under load (e.g., lowering in a push-up). This phase causes most DOMS."},
-    {"id":"q15","question":"What is the 'scapular retraction' cue?",
-     "options":["Shrug your shoulders upward","Pull your shoulder blades together and down","Round your upper back","Flare your elbows out"],"answer":1,"gems":15,
-     "explanation":"Scapular retraction = pulling shoulder blades toward each other and down. Critical for safe pulling movements."},
-    {"id":"q16","question":"How long should you hold a static stretch for benefit?",
-     "options":["5–10 seconds","15–20 seconds","30–60 seconds","2–3 minutes"],"answer":2,"gems":15,
-     "explanation":"Research supports 30–60 seconds per position for meaningful flexibility improvement."},
-    {"id":"q17","question":"Which push-up variation most targets the upper chest?",
-     "options":["Wide push-up","Diamond push-up","Decline push-up","Archer push-up"],"answer":2,"gems":15,
-     "explanation":"Decline push-ups (feet elevated) shift force toward the upper chest (clavicular head) and front deltoids."},
-    {"id":"q18","question":"What is the primary benefit of the hollow body hold?",
-     "options":["Hip flexor isolation","Full-body tension and core compression","Lower back strengthening","Shoulder mobility"],"answer":1,"gems":15,
-     "explanation":"Hollow body trains the ability to generate and maintain full-body tension — the foundation of gymnastics strength."},
-    {"id":"q19","question":"How many sets are generally recommended for strength gains per muscle group per session?",
-     "options":["1–2 sets","3–5 sets","8–10 sets","12–15 sets"],"answer":1,"gems":15,
-     "explanation":"3–5 working sets per muscle group per session is the well-supported range for strength and hypertrophy."},
-    {"id":"q20","question":"True or False: You can target fat loss in a specific body area through exercise (spot reduction).",
-     "options":["True — targeted exercises burn fat in that area","False — fat loss is systemic, not localized","True only for the abdominals","False only for the arms"],"answer":1,"gems":15,
-     "explanation":"Spot reduction is a myth. Fat is mobilized from all over the body based on genetics and overall caloric deficit."},
+    # --- Muscle anatomy ---
+    {"id":"q001","q":"Push-ups primarily work which muscle?","opts":["Biceps","Chest","Quads","Hamstrings"],"a":1,"exp":"Push-ups load the chest (pectoralis major), triceps, and front deltoids."},
+    {"id":"q002","q":"Squats primarily train which muscle group?","opts":["Shoulders","Back","Legs & glutes","Arms"],"a":2,"exp":"Squats are a compound lower-body movement targeting quads, glutes, and hamstrings."},
+    {"id":"q003","q":"The plank is mainly a __ exercise.","opts":["Strength","Cardio","Core stability","Flexibility"],"a":2,"exp":"The plank builds anti-rotation and anti-extension core stability."},
+    {"id":"q004","q":"Diamond push-ups target which area more than regular push-ups?","opts":["Outer chest","Inner chest & triceps","Lower back","Biceps"],"a":1,"exp":"The narrow hand position loads the inner chest and triceps more heavily."},
+    {"id":"q005","q":"Glute bridges primarily work the __","opts":["Quadriceps","Calves","Glutes & hamstrings","Chest"],"a":2,"exp":"Hip extension through glute bridges directly targets the gluteus maximus and hamstrings."},
+    {"id":"q006","q":"Mountain climbers train mainly which muscles?","opts":["Arms & chest","Core & hip flexors","Lower back","Calves"],"a":1,"exp":"Mountain climbers challenge core stability and hip flexors dynamically."},
+    {"id":"q007","q":"Pike push-ups primarily work the __","opts":["Chest","Triceps","Shoulders (deltoids)","Lats"],"a":2,"exp":"The inverted V position shifts load heavily onto the front deltoids."},
+    {"id":"q008","q":"Superman holds train which area?","opts":["Abs","Posterior chain (back & glutes)","Chest","Biceps"],"a":1,"exp":"The prone lift engages erector spinae, glutes, and posterior shoulder muscles."},
+    {"id":"q009","q":"Which muscle straightens the elbow?","opts":["Biceps","Triceps","Deltoid","Trapezius"],"a":1,"exp":"The triceps brachii is the primary elbow extensor."},
+    {"id":"q010","q":"Which muscle bends the knee?","opts":["Quadriceps","Hamstrings","Calves","Hip flexors"],"a":1,"exp":"The hamstrings flex the knee joint."},
+    # --- Exercise technique ---
+    {"id":"q011","q":"In a correct squat your knees should track __","opts":["Inward","Straight forward regardless","Over the toes","Behind the heels"],"a":2,"exp":"Knees should track in line with the toes to protect the knee joint."},
+    {"id":"q012","q":"During a push-up your body should form __","opts":["An arch","A rigid straight line","A V-shape","A C-curve"],"a":1,"exp":"A rigid plank from head to heel protects the lower back and maximises activation."},
+    {"id":"q013","q":"Feet elevated in a push-up shifts load to the __","opts":["Lower chest","Upper chest","Triceps only","Biceps"],"a":1,"exp":"Decline push-ups (feet up) angle force toward the clavicular (upper) head of the pectoralis."},
+    {"id":"q014","q":"In a lunge, your front shin should be __","opts":["Angled forward","Vertical (perpendicular to floor)","Angled backward","Parallel to the floor"],"a":1,"exp":"A vertical shin keeps the knee over the ankle and reduces joint stress."},
+    {"id":"q015","q":"What does 'full range of motion' mean?","opts":["Moving as fast as possible","Moving through the complete joint range","Using the heaviest weight","Doing as many reps as possible"],"a":1,"exp":"Full ROM means the joint travels through its entire available movement, maximising muscle stretch and contraction."},
+    {"id":"q016","q":"The 'eccentric' phase of a push-up is when you __","opts":["Push up","Lower down","Rest at the bottom","Jump up"],"a":1,"exp":"Eccentric = the muscle lengthens under load. Lowering is the eccentric phase of a push-up."},
+    {"id":"q017","q":"Hollow body hold requires your lower back to be __","opts":["Arched off the floor","Flat/pressed into the floor","Slightly off the floor","Does not matter"],"a":1,"exp":"The lower back must stay flat. If it arches you've lost the hollow position."},
+    {"id":"q018","q":"'Scapular depression' means __","opts":["Shoulder blades going up","Shoulder blades going down","Shoulder blades going apart","Shoulder blades rotating"],"a":1,"exp":"Depression = pressing the scapulae downward. Important for shoulder stability in overhead movements."},
+    {"id":"q019","q":"A slow descent (eccentric) during exercise generally __","opts":["Reduces muscle gains","Increases time under tension","Has no effect","Causes injury"],"a":1,"exp":"Slower eccentrics increase time-under-tension, a key driver of muscle growth."},
+    {"id":"q020","q":"To progress a push-up when it gets easy, you should __","opts":["Do fewer reps","Add a harder variation","Rest more","Reduce sets"],"a":1,"exp":"Progressive overload — moving to harder variations like archer or one-arm push-ups keeps driving adaptation."},
+    # --- Recovery & rest ---
+    {"id":"q021","q":"Muscle soreness 24–48 hrs after training is called __","opts":["Injury","DOMS","Cramp","Tendinitis"],"a":1,"exp":"DOMS = Delayed Onset Muscle Soreness — normal micro-damage from training that signals adaptation."},
+    {"id":"q022","q":"Most adults need __ sleep for optimal muscle recovery.","opts":["4–5 hrs","5–6 hrs","7–9 hrs","10–12 hrs"],"a":2,"exp":"7–9 hrs is the recommended range. Growth hormone — critical for repair — peaks during deep sleep."},
+    {"id":"q023","q":"Active recovery means __","opts":["Complete rest","Light activity like walking or stretching","Intense exercise","Sleeping all day"],"a":1,"exp":"Light movement increases blood flow and speeds up metabolite clearance without adding stress."},
+    {"id":"q024","q":"Recommended rest between strength sets is __","opts":["10–20 sec","30–60 sec","1–3 min","5–10 min"],"a":2,"exp":"1–3 minutes allows partial ATP replenishment for near-maximal effort on the next set."},
+    {"id":"q025","q":"Training the same muscle group every single day is generally __","opts":["Ideal for fastest gains","Risky — muscles need recovery time","Fine if you eat enough","Only OK for abs"],"a":1,"exp":"Most muscle groups need 48+ hrs to repair. Daily training the same muscle risks overtraining."},
+    # --- Nutrition basics ---
+    {"id":"q026","q":"1 gram of protein provides approximately __","opts":["2 kcal","4 kcal","7 kcal","9 kcal"],"a":1,"exp":"Protein and carbohydrates both provide ~4 kcal/g. Fat provides ~9 kcal/g."},
+    {"id":"q027","q":"Which macronutrient fuels high-intensity exercise best?","opts":["Fat","Protein","Carbohydrates","Fibre"],"a":2,"exp":"Carbohydrates (stored as glycogen) are the primary fuel for anaerobic/high-intensity effort."},
+    {"id":"q028","q":"Drinking water before and during exercise is important for __","opts":["Weight loss only","Performance and temperature regulation","Muscle building only","Nothing — it doesn't matter"],"a":1,"exp":"Dehydration of even 2% body weight can impair performance, focus and thermoregulation."},
+    {"id":"q029","q":"Protein helps build and repair __","opts":["Bones only","Muscle tissue","Fat tissue","Organs only"],"a":1,"exp":"Dietary protein supplies amino acids needed to repair micro-tears and synthesise new muscle fibres."},
+    {"id":"q030","q":"A caloric deficit means you're eating __","opts":["More calories than you burn","Fewer calories than you burn","Exactly as many as you burn","Only healthy foods"],"a":1,"exp":"Caloric deficit = intake < expenditure. Sustained deficit leads to fat loss over time."},
+    # --- General fitness knowledge ---
+    {"id":"q031","q":"'HIIT' stands for __","opts":["High Intensity Isometric Training","High Intensity Interval Training","Heavy Impact Incline Training","High Impact Integrated Training"],"a":1,"exp":"HIIT alternates intense effort bursts with short rest periods, boosting cardio and calorie burn efficiently."},
+    {"id":"q032","q":"BMI stands for __","opts":["Body Mass Index","Bone Muscle Indicator","Basic Metabolic Index","Body Movement Intensity"],"a":0,"exp":"BMI = weight (kg) ÷ height² (m). A screening tool for weight categories, not a direct health measure."},
+    {"id":"q033","q":"Flexibility training is best done __","opts":["Only before exercise","Only after exercise","Never — not needed","Both before (dynamic) and after (static)"],"a":3,"exp":"Dynamic stretching pre-workout primes joints; static stretching post-workout improves flexibility."},
+    {"id":"q034","q":"How many days per week should beginners strength train?","opts":["1 day","2–3 days","5–6 days","Every day"],"a":1,"exp":"2–3 days gives beginners enough stimulus with adequate recovery between sessions."},
+    {"id":"q035","q":"Consistency over time matters more than __","opts":["Sleep","One perfect workout","Nutrition","Hydration"],"a":1,"exp":"A sustainable routine across months and years outperforms any single elite session."},
+    {"id":"q036","q":"Bodyweight training can build muscle. True or false?","opts":["True","False"],"a":0,"exp":"Progressive calisthenics — harder variations, more reps, slower tempo — provide sufficient stimulus for hypertrophy."},
+    {"id":"q037","q":"Core strength primarily helps with __","opts":["Arm strength only","Spinal stability & force transfer","Leg speed","Lung capacity"],"a":1,"exp":"A strong core stabilises the spine, reduces injury risk, and improves force transfer in every movement."},
+    {"id":"q038","q":"Which of these is NOT a benefit of regular exercise?","opts":["Better sleep","Improved mood","Instant permanent weight loss","Reduced disease risk"],"a":2,"exp":"Weight management requires sustained habit and diet. Exercise alone does not produce instant permanent loss."},
+    {"id":"q039","q":"'Progressive overload' means __","opts":["Resting more over time","Gradually increasing training demand over time","Doing the same workout forever","Reducing weight to avoid injury"],"a":1,"exp":"Progressive overload — more reps, harder variations, less rest — is the fundamental principle of improvement."},
+    {"id":"q040","q":"Which breathing pattern is correct during a push-up?","opts":["Hold breath the whole time","Inhale going down, exhale going up","Exhale going down, inhale going up","Breathing does not matter"],"a":1,"exp":"Inhale (eccentric/lowering), exhale (concentric/exertion). Exhaling during effort stabilises the core via the Valsalva effect."},
+    # --- Warm-up / cool-down ---
+    {"id":"q041","q":"Why warm up before exercise?","opts":["It burns more fat","Increases blood flow and reduces injury risk","It counts as the workout","Warms the room"],"a":1,"exp":"Warming up raises core temperature, increases synovial fluid and prepares the neuromuscular system."},
+    {"id":"q042","q":"Static stretching (holding a stretch) should mainly be done __","opts":["Before intense exercise","After exercise when muscles are warm","During exercise","Never"],"a":1,"exp":"Post-workout static stretching is safer and more effective when tissues are warm and pliable."},
+    {"id":"q043","q":"Dynamic warm-up includes __","opts":["Holding a stretch for 60 sec","Leg swings and arm circles","Sitting and resting","Weightlifting at full intensity"],"a":1,"exp":"Dynamic movements mimic the exercise pattern while progressively increasing range and speed."},
+    # --- Mental / lifestyle ---
+    {"id":"q044","q":"Building a habit takes approximately __","opts":["1–3 days","1 week","18–66+ days of consistent repetition","Exactly 21 days"],"a":2,"exp":"Research shows habit formation varies widely — 18 to 254 days depending on complexity and consistency."},
+    {"id":"q045","q":"Stress can affect workout performance by __","opts":["Only improving it","Impairing recovery and motivation","Having no effect","Always causing injury"],"a":1,"exp":"Chronic stress elevates cortisol, which impairs recovery, sleep quality, and training motivation."},
+    {"id":"q046","q":"Setting SMART fitness goals means goals are __","opts":["Simple, Mean, Active, Realistic, Timed","Specific, Measurable, Achievable, Relevant, Time-bound","Strong, Motivated, Accurate, Rapid, True","None of the above"],"a":1,"exp":"SMART goals dramatically increase follow-through by making progress trackable and expectations clear."},
+    # --- Calorie & energy ---
+    {"id":"q047","q":"Approximately how many kcal are in 1 kg of body fat?","opts":["1,000 kcal","3,500 kcal","7,700 kcal","15,000 kcal"],"a":2,"exp":"~7,700 kcal = 1 kg of fat. A 500 kcal/day deficit takes ~15 days to lose 1 kg of fat."},
+    {"id":"q048","q":"TDEE stands for __","opts":["Total Daily Energy Expenditure","Timed Diet Exercise Effect","Target Dietary Energy Estimate","Total Dietary Enzyme Efficiency"],"a":0,"exp":"TDEE = all calories burned in a day: resting metabolism + activity + digestion."},
+    {"id":"q049","q":"Which burns more calories per hour on average?","opts":["Walking","Running","Sitting","Sleeping"],"a":1,"exp":"Running burns roughly 2–3× more calories per hour than walking at the same body weight."},
+    {"id":"q050","q":"Muscle tissue burns more calories at rest than fat tissue. True or false?","opts":["True","False"],"a":0,"exp":"Muscle is metabolically active tissue. More muscle = higher basal metabolic rate (BMR)."},
+    # --- Safety ---
+    {"id":"q051","q":"Pain during exercise is __","opts":["Always normal — push through it","A signal to stop and assess","Only a problem for beginners","Never experienced by fit people"],"a":1,"exp":"Sharp or joint pain signals something wrong. Muscle burn (effort) is different from pain (damage)."},
+    {"id":"q052","q":"Proper posture during exercise __","opts":["Slows progress","Reduces injury risk and improves results","Has no effect","Makes it easier to cheat"],"a":1,"exp":"Correct alignment distributes forces safely and ensures the target muscle does the work."},
+    {"id":"q053","q":"Before training with an injury you should __","opts":["Push through it always","Consult a professional first","Ignore the pain","Train only the injured area harder"],"a":1,"exp":"Training through injury can worsen damage. Medical clearance avoids turning a minor issue into a long-term problem."},
+    # --- Fun / motivational ---
+    {"id":"q054","q":"The best workout is __","opts":["The one everyone else does","The most intense one","The one you actually do consistently","Only weightlifting"],"a":2,"exp":"Adherence is the single biggest predictor of fitness results. The 'best' program is the one you stick to."},
+    {"id":"q055","q":"How does exercise affect mood?","opts":["It only helps if you enjoy it","It releases endorphins that improve mood","It always makes you more tired","It has no effect on mood"],"a":1,"exp":"Exercise triggers endorphin, serotonin, and dopamine release — all proven mood enhancers."},
+    {"id":"q056","q":"Floor-only (calisthenics) training can achieve __","opts":["Cardio fitness only","Strength, muscle, flexibility and cardio","Only flexibility","Nothing useful"],"a":1,"exp":"Calisthenics develops strength, hypertrophy, flexibility, coordination and cardiovascular fitness."},
+    {"id":"q057","q":"Rest days are __","opts":["A sign of weakness","When muscle growth and repair actually happen","Wasted time","Only for beginners"],"a":1,"exp":"Adaptation and muscle repair happen during rest. Training provides the stimulus; rest delivers the gains."},
+    {"id":"q058","q":"Tracking your workouts helps because __","opts":["It is required by law","It ensures progressive overload and keeps you accountable","It is only for professionals","It is a waste of time"],"a":1,"exp":"Logs show what's working, prevent plateaus and give a measurable sense of progress."},
+    {"id":"q059","q":"Which is a compound (multi-joint) exercise?","opts":["Bicep curl","Calf raise","Push-up","Wrist curl"],"a":2,"exp":"Push-ups recruit shoulders, elbows and involve the entire torso — a compound movement."},
+    {"id":"q060","q":"'Reps' means __","opts":["Rest periods","Individual repetitions of a movement","Sets of exercise","Rounds of a circuit"],"a":1,"exp":"Rep = repetition. One complete performance of a movement from start to finish."},
 ]
 
-# ─── WORKOUT DATABASE (zero equipment — floor only) ───────────────────────────
-# Visuals are rendered as SVG illustrations inline in the frontend — no broken URLs
+# ─── WORKOUT DATABASE ─────────────────────────────────────────────────
+# All floor-only. Bonus workouts are lighter (marked bonus_ok:true), different exercises.
 WORKOUTS = {
     "chest": [
-        {"name":"Push-ups","sets":4,"reps":"12-15","rest":60,"emoji":"💪","color":"#c8f55a","duration_min":0.4,
-         "desc":"Classic push-up. Hands shoulder-width, lower chest to just above floor, press explosively. Core, glutes, quads all locked tight.",
-         "cues":["Shoulder-width hand placement","2-second controlled descent","Chest grazes the floor","Explode up — lock out arms"]},
-        {"name":"Wide Push-ups","sets":3,"reps":"10-12","rest":60,"emoji":"↔️","color":"#6dc87a","duration_min":0.35,
-         "desc":"Hands wider than shoulders targets outer chest fibres. Feel the stretch across your chest at the bottom of every rep.",
-         "cues":["Hands wider than shoulder-width","Elbows track outward","Feel the stretch at bottom","Squeeze hard at top"]},
-        {"name":"Diamond Push-ups","sets":3,"reps":"8-10","rest":75,"emoji":"💎","color":"#5ab4ff","duration_min":0.3,
-         "desc":"Diamond shape under chest. Elbows point backward. Heavy tricep and inner chest. Slow the descent.",
-         "cues":["Diamond shape under chest","Elbows point straight back","Full range of motion","3-second descent"]},
-        {"name":"Decline Push-ups","sets":3,"reps":"10-12","rest":60,"emoji":"📐","color":"#f5a623","duration_min":0.35,
-         "desc":"Feet elevated on couch or bed. Shifts load to upper chest and front deltoids. Keep hips level throughout.",
-         "cues":["Feet elevated on stable surface","Hips stay level","Hands below shoulders","Control down — press hard"]},
-        {"name":"Slow Push-ups (3-1-1)","sets":3,"reps":"6-8","rest":90,"emoji":"🐢","color":"#ff4444","duration_min":0.4,
-         "desc":"3 sec down, 1 sec pause at bottom, 1 sec up. Time-under-tension maximised. Harder than it sounds.",
-         "cues":["3 seconds on descent","1-second dead pause at bottom","1 second press up","Entire body rigid"]},
+        {"name":"Push-ups","sets":4,"reps":"12-15","rest":60,"emoji":"💪","color":"#c8f55a","bonus_ok":False,
+         "desc":"Hands shoulder-width, lower chest to just above floor, push up explosively. Keep core and glutes locked.",
+         "cues":["Shoulder-width grip","2-second descent","Chest grazes floor","Explode up — lock arms"]},
+        {"name":"Wide Push-ups","sets":3,"reps":"10-12","rest":60,"emoji":"↔️","color":"#6dc87a","bonus_ok":False,
+         "desc":"Hands wider than shoulders. Targets outer chest. Feel the stretch at the bottom of each rep.",
+         "cues":["Past shoulder-width","Elbows flare out","Feel chest stretch","Squeeze at top"]},
+        {"name":"Diamond Push-ups","sets":3,"reps":"8-10","rest":75,"emoji":"💎","color":"#5ab4ff","bonus_ok":False,
+         "desc":"Diamond shape under chest. Heavy tricep and inner chest. Slow the descent.",
+         "cues":["Diamond under chest","Elbows point back","Full range","3-sec descent"]},
+        {"name":"Decline Push-ups","sets":3,"reps":"10-12","rest":60,"emoji":"📐","color":"#f5a623","bonus_ok":False,
+         "desc":"Feet elevated on couch. Shifts load to upper chest and front deltoids.",
+         "cues":["Feet elevated","Hips level","Hands below shoulders","Control down — press hard"]},
+        {"name":"Slow Push-ups (3-1-1)","sets":3,"reps":"6-8","rest":90,"emoji":"🐢","color":"#ff4444","bonus_ok":False,
+         "desc":"3 sec down, 1 sec pause, 1 sec up. Maximum time-under-tension. Harder than it sounds.",
+         "cues":["3 sec descent","1-sec pause at bottom","1 sec press","Full body rigid"]},
+    ],
+    "chest_bonus": [
+        {"name":"Knee Push-ups","sets":3,"reps":"15-20","rest":45,"emoji":"🤲","color":"#c8f55a","bonus_ok":True,
+         "desc":"On knees instead of toes. Lighter variation — perfect for a quick bonus session.",
+         "cues":["Knees on floor","Body straight from knee to head","Chest to floor","Controlled push up"]},
+        {"name":"Wall Push-ups","sets":3,"reps":"20","rest":30,"emoji":"🧱","color":"#6dc87a","bonus_ok":True,
+         "desc":"Standing, hands on wall. Very light — good pump without fatigue.",
+         "cues":["Arms at shoulder height","Lean in slowly","Control the push back","Keep core tight"]},
+        {"name":"Chest Squeeze (no equip)","sets":3,"reps":"15","rest":30,"emoji":"🤜","color":"#5ab4ff","bonus_ok":True,
+         "desc":"Press palms together as hard as possible at chest height. Isometric chest squeeze.",
+         "cues":["Press palms together hard","Hold 2 seconds","Release slowly","Feel the chest squeeze"]},
     ],
     "back": [
-        {"name":"Superman Hold","sets":4,"reps":"15-20","rest":45,"emoji":"🦸","color":"#c8f55a","duration_min":0.4,
-         "desc":"Lie face down. Lift arms, chest and legs simultaneously. Squeeze glutes hard. Hold 1–2 sec at top.",
-         "cues":["Lie fully flat","Lift arms AND legs simultaneously","Squeeze glutes hard","1-2 sec hold — lower slow"]},
-        {"name":"YTW Raises","sets":3,"reps":"10 each","rest":60,"emoji":"🔤","color":"#5ab4ff","duration_min":0.35,
-         "desc":"Face down. Raise into Y, T then W shapes. Targets rear deltoids, lower traps, rotator cuff.",
-         "cues":["Face down, forehead near floor","Y — arms overhead at 45°","T — arms straight sideways","W — elbows bent 90°"]},
-        {"name":"Reverse Snow Angels","sets":3,"reps":"12-15","rest":60,"emoji":"🌨️","color":"#6dc87a","duration_min":0.3,
-         "desc":"Face down, arms by sides. Sweep arms overhead and back like a snow angel. Chest and arms stay raised.",
-         "cues":["Chest and arms off floor throughout","Sweep arms smoothly overhead","Return to start slowly","Glutes engaged"]},
-        {"name":"Hip Hinges","sets":3,"reps":"15-20","rest":45,"emoji":"🙇","color":"#f5a623","duration_min":0.3,
-         "desc":"Stand, soft knee bend. Hinge at hips pushing them backward, torso nearly parallel. Hamstrings load. Drive hips forward to stand.",
-         "cues":["Soft knee bend — not a squat","Push hips BACK not down","Spine long and neutral","Drive hips forward to stand"]},
-        {"name":"Prone Cobra","sets":3,"reps":"12-15","rest":60,"emoji":"🐍","color":"#ff4444","duration_min":0.3,
-         "desc":"Face down, hands under shoulders. Press up lifting chest using back muscles, not arms. Squeeze lats.",
-         "cues":["Hands under shoulders","Lift with back muscles — not arms","Shoulders back and down","Hold 1 second at top"]},
+        {"name":"Superman Hold","sets":4,"reps":"15-20","rest":45,"emoji":"🦸","color":"#c8f55a","bonus_ok":False,
+         "desc":"Lie face down. Lift arms, chest and legs simultaneously. Squeeze glutes hard.",
+         "cues":["Fully flat on floor","Lift arms AND legs","Squeeze glutes","1-2 sec hold"]},
+        {"name":"YTW Raises","sets":3,"reps":"10 each","rest":60,"emoji":"🔤","color":"#5ab4ff","bonus_ok":False,
+         "desc":"Face down. Raise into Y, T then W shapes. Rear deltoids, lower traps, rotator cuff.",
+         "cues":["Face down","Y — overhead 45°","T — arms sideways","W — elbows bent 90°"]},
+        {"name":"Reverse Snow Angels","sets":3,"reps":"12-15","rest":60,"emoji":"🌨️","color":"#6dc87a","bonus_ok":False,
+         "desc":"Face down, sweep arms overhead and back. Chest stays raised throughout.",
+         "cues":["Chest off floor throughout","Sweep overhead","Return slowly","Glutes tight"]},
+        {"name":"Hip Hinges","sets":3,"reps":"15-20","rest":45,"emoji":"🙇","color":"#f5a623","bonus_ok":False,
+         "desc":"Hinge at hips, torso drops forward, hamstrings load. Drive hips forward to stand.",
+         "cues":["Soft knee bend","Push hips BACK","Spine long","Drive hips forward"]},
+        {"name":"Prone Cobra","sets":3,"reps":"12-15","rest":60,"emoji":"🐍","color":"#ff4444","bonus_ok":False,
+         "desc":"Face down, lift chest using back muscles. Shoulders roll back and down.",
+         "cues":["Hands under shoulders","Back muscles lift — not arms","Shoulders back","Hold 1 sec"]},
+    ],
+    "back_bonus": [
+        {"name":"Superman Pulses","sets":3,"reps":"20","rest":30,"emoji":"✨","color":"#c8f55a","bonus_ok":True,
+         "desc":"Same as superman but small pulses instead of holds. Light and effective.",
+         "cues":["Face down","Small up-down pulses","Keep glutes squeezed","Controlled rhythm"]},
+        {"name":"Lying Y-Raises","sets":3,"reps":"15","rest":30,"emoji":"🔤","color":"#5ab4ff","bonus_ok":True,
+         "desc":"Lie face down, raise only in Y shape. Simple and light posterior chain work.",
+         "cues":["Arms at 45° overhead","Lift from shoulder blades","Hold 1 sec","Lower slowly"]},
     ],
     "legs": [
-        {"name":"Bodyweight Squats","sets":4,"reps":"15-20","rest":60,"emoji":"🦵","color":"#c8f55a","duration_min":0.45,
-         "desc":"Feet shoulder-width. Sit back and down — hip crease below knee. Chest tall. Drive through full foot.",
-         "cues":["Weight in full foot","Hip crease below knee","Knees track over toes","Tall chest throughout"]},
-        {"name":"Reverse Lunges","sets":3,"reps":"12 each","rest":60,"emoji":"👟","color":"#5ab4ff","duration_min":0.4,
-         "desc":"Step straight back. Lower back knee toward floor. Front shin stays vertical. Push through front heel.",
-         "cues":["Step straight back","Back knee near floor","Front shin stays vertical","Drive through front heel"]},
-        {"name":"Glute Bridges","sets":3,"reps":"15-20","rest":45,"emoji":"🌉","color":"#6dc87a","duration_min":0.4,
-         "desc":"On back, feet flat. Drive hips up hard — maximum glute squeeze. 2-second hold at peak. Lower slow.",
-         "cues":["Drive hips straight up","Maximum glute squeeze","2-second hold","Lower slowly"]},
-        {"name":"Jump Squats","sets":3,"reps":"10-12","rest":75,"emoji":"⚡","color":"#f5a623","duration_min":0.35,
-         "desc":"Full squat then explode upward as powerfully as possible. Arms swing. Land with bent knees.",
-         "cues":["Full squat depth","Arm swing for power","Maximum height","Land soft — bend knees"]},
-        {"name":"Single-Leg RDL","sets":3,"reps":"10 each","rest":60,"emoji":"🦩","color":"#ff4444","duration_min":0.4,
-         "desc":"Balance one leg. Hinge at hips — rear leg extends as torso drops. Squeeze standing glute to return.",
-         "cues":["Standing leg has slight bend","Hips hinge — don't round spine","Rear leg extends as torso drops","Squeeze glute to return"]},
+        {"name":"Bodyweight Squats","sets":4,"reps":"15-20","rest":60,"emoji":"🦵","color":"#c8f55a","bonus_ok":False,
+         "desc":"Hip crease below knee. Chest tall. Drive through full foot.",
+         "cues":["Full depth","Chest tall","Knees over toes","Drive through full foot"]},
+        {"name":"Reverse Lunges","sets":3,"reps":"12 each","rest":60,"emoji":"👟","color":"#5ab4ff","bonus_ok":False,
+         "desc":"Step straight back. Back knee near floor. Front shin vertical.",
+         "cues":["Step straight back","Back knee to floor","Front shin vertical","Drive through front heel"]},
+        {"name":"Glute Bridges","sets":3,"reps":"15-20","rest":45,"emoji":"🌉","color":"#6dc87a","bonus_ok":False,
+         "desc":"Drive hips up hard. Max glute squeeze at top. 2-sec hold. Lower slow.",
+         "cues":["Drive hips up","Max glute squeeze","2-sec hold","Lower slowly"]},
+        {"name":"Jump Squats","sets":3,"reps":"10-12","rest":75,"emoji":"⚡","color":"#f5a623","bonus_ok":False,
+         "desc":"Full squat, explode upward. Land with bent knees.",
+         "cues":["Full squat","Arm swing","Maximum height","Land soft"]},
+        {"name":"Single-Leg RDL","sets":3,"reps":"10 each","rest":60,"emoji":"🦩","color":"#ff4444","bonus_ok":False,
+         "desc":"Balance on one leg. Hinge at hips. Rear leg extends. Squeeze glute to return.",
+         "cues":["Slight knee bend","Hips hinge — spine long","Rear leg extends","Squeeze glute to return"]},
+    ],
+    "legs_bonus": [
+        {"name":"Calf Raises","sets":3,"reps":"25","rest":30,"emoji":"👣","color":"#c8f55a","bonus_ok":True,
+         "desc":"Rise onto toes. Slow down. Simple and effective.",
+         "cues":["Rise high onto toes","Hold 1 sec at top","Lower slowly","Full range"]},
+        {"name":"Lateral Leg Raises","sets":3,"reps":"15 each","rest":30,"emoji":"↗️","color":"#6dc87a","bonus_ok":True,
+         "desc":"Lie on side, raise top leg. Light glute med work.",
+         "cues":["Lie on side","Raise leg to 45°","Hold 1 sec","Lower slowly"]},
+        {"name":"Standing Hip Circles","sets":2,"reps":"10 each direction","rest":30,"emoji":"⭕","color":"#5ab4ff","bonus_ok":True,
+         "desc":"Stand, draw large circles with your knee. Hip mobility and light activation.",
+         "cues":["Balance on one leg","Large slow circles","Both directions","Controlled movement"]},
     ],
     "core": [
-        {"name":"Plank","sets":3,"reps":"30-60 sec","rest":45,"emoji":"📏","color":"#c8f55a","duration_min":0.35,
-         "desc":"Forearms flat. Rigid line head to heel. Abs + glutes + quads all engaged. Breathe steadily.",
-         "cues":["Elbows under shoulders","Rigid line: head → heel","Abs + glutes + quads","Keep breathing"]},
-        {"name":"Hollow Body Hold","sets":3,"reps":"20-30 sec","rest":45,"emoji":"🚀","color":"#5ab4ff","duration_min":0.3,
-         "desc":"Lower back GLUED to floor. Arms overhead, legs at 30°. If back lifts — raise legs higher.",
-         "cues":["Lower back GLUED to floor","Arms reach overhead","Legs at 30°","If back lifts — raise legs"]},
-        {"name":"Dead Bug","sets":3,"reps":"8-10 each","rest":45,"emoji":"🐛","color":"#6dc87a","duration_min":0.35,
-         "desc":"Arms up, knees at 90° in air. Extend opposite arm and leg. 3 seconds. Back flat always.",
-         "cues":["Back flat — always","3 seconds per rep","Opposite arm + leg","Never arch back"]},
-        {"name":"Mountain Climbers","sets":3,"reps":"20 each","rest":45,"emoji":"⛰️","color":"#f5a623","duration_min":0.35,
-         "desc":"High plank. Drive knees to chest alternately. Hips LEVEL. Controlled rhythm not a sprint.",
-         "cues":["Hips LEVEL","Drive knee fully to chest","Controlled rhythm","Shoulders over wrists"]},
-        {"name":"Bicycle Crunches","sets":3,"reps":"15 each","rest":45,"emoji":"🚲","color":"#ff4444","duration_min":0.35,
-         "desc":"On back. Bring one knee to chest while rotating opposite elbow toward it. Full rotation — not just tilting.",
-         "cues":["Hands lightly behind head","Full rotation — elbow past knee","Extend opposite leg fully","Slow and controlled"]},
+        {"name":"Plank","sets":3,"reps":"30-60 sec","rest":45,"emoji":"📏","color":"#c8f55a","bonus_ok":False,
+         "desc":"Rigid line head to heel. Abs + glutes + quads all firing. Breathe.",
+         "cues":["Elbows under shoulders","Rigid line head-heel","Abs+glutes+quads","Breathe steadily"]},
+        {"name":"Hollow Body Hold","sets":3,"reps":"20-30 sec","rest":45,"emoji":"🚀","color":"#5ab4ff","bonus_ok":False,
+         "desc":"Lower back GLUED to floor. Arms overhead, legs at 30°.",
+         "cues":["Lower back flat","Arms overhead","Legs at 30°","Raise legs if back lifts"]},
+        {"name":"Dead Bug","sets":3,"reps":"8-10 each","rest":45,"emoji":"🐛","color":"#6dc87a","bonus_ok":False,
+         "desc":"Arms up, knees 90° in air. Extend opposite arm & leg. 3 seconds. Back flat.",
+         "cues":["Back flat always","3 sec per rep","Opposite arm+leg","Never arch"]},
+        {"name":"Mountain Climbers","sets":3,"reps":"20 each","rest":45,"emoji":"⛰️","color":"#f5a623","bonus_ok":False,
+         "desc":"High plank. Drive knees to chest alternately. Hips LEVEL.",
+         "cues":["Hips level","Drive knee to chest","Controlled","Shoulders over wrists"]},
+        {"name":"Bicycle Crunches","sets":3,"reps":"15 each","rest":45,"emoji":"🚲","color":"#ff4444","bonus_ok":False,
+         "desc":"Elbow past opposite knee. Extend other leg fully. Slow and controlled.",
+         "cues":["Hands lightly behind head","Elbow past knee","Extend other leg fully","Slow — feel it"]},
+    ],
+    "core_bonus": [
+        {"name":"Seated Knee Tucks","sets":3,"reps":"20","rest":30,"emoji":"🪑","color":"#c8f55a","bonus_ok":True,
+         "desc":"Sit, lean back slightly, bring knees in and out. Easy core activation.",
+         "cues":["Lean slightly back","Bring knees to chest","Extend out","Controlled motion"]},
+        {"name":"Side Plank (each side)","sets":2,"reps":"20-30 sec each","rest":30,"emoji":"◀️","color":"#5ab4ff","bonus_ok":True,
+         "desc":"Forearm side plank. Light lateral core work.",
+         "cues":["Forearm on floor","Hip up — straight line","Breathe steadily","Hold the time"]},
     ],
     "shoulders": [
-        {"name":"Pike Push-ups","sets":4,"reps":"8-12","rest":75,"emoji":"🔺","color":"#c8f55a","duration_min":0.4,
-         "desc":"Inverted V position. Lower head toward floor between hands. Full arm extension at top.",
-         "cues":["Hips high — inverted V","Head targets floor between hands","Elbows slightly back","Full arm extension"]},
-        {"name":"Wall Handstand Hold","sets":3,"reps":"20-30 sec","rest":90,"emoji":"🤸","color":"#5ab4ff","duration_min":0.35,
-         "desc":"Kick up to wall. Rigid hollow body upside down. Actively push floor away. Eyes at floor.",
-         "cues":["Hands ~30cm from wall","Hollow body — no arch","Push floor away","Eyes at floor between hands"]},
-        {"name":"Shoulder Taps","sets":3,"reps":"10 each","rest":45,"emoji":"👆","color":"#6dc87a","duration_min":0.3,
-         "desc":"High plank. Tap opposite shoulder while keeping hips as still as possible. Anti-rotation core.",
-         "cues":["High plank — feet wide","Hips stay square","Tap opposite shoulder","Controlled — don't rush"]},
-        {"name":"Pseudo Planche Lean","sets":3,"reps":"5×5 sec","rest":90,"emoji":"📐","color":"#f5a623","duration_min":0.35,
-         "desc":"Push-up position, fingers outward. Lean so shoulders go past hands. Round upper back slightly. Extreme front delt.",
-         "cues":["Fingers at ~45°","Lean forward past hands","Round upper back","Hold 5 sec — breathe"]},
-        {"name":"Pike Negatives","sets":3,"reps":"4-6","rest":90,"emoji":"⬇️","color":"#ff4444","duration_min":0.35,
-         "desc":"Pike push-up position. Take 6 full seconds to lower. Do not press back up — reset. Eccentric strength.",
-         "cues":["Take exactly 6 seconds down","Count out loud","Head touches floor lightly","Reset — don't press up"]},
+        {"name":"Pike Push-ups","sets":4,"reps":"8-12","rest":75,"emoji":"🔺","color":"#c8f55a","bonus_ok":False,
+         "desc":"Inverted V. Lower head to floor between hands. Full arm extension at top.",
+         "cues":["Hips high","Head to floor","Elbows slightly back","Full extension"]},
+        {"name":"Wall Handstand Hold","sets":3,"reps":"20-30 sec","rest":90,"emoji":"🤸","color":"#5ab4ff","bonus_ok":False,
+         "desc":"Kick up. Rigid hollow body. Push floor away. Eyes at floor.",
+         "cues":["Hands ~30cm from wall","Hollow body","Push floor away","Eyes at floor"]},
+        {"name":"Shoulder Taps","sets":3,"reps":"10 each","rest":45,"emoji":"👆","color":"#6dc87a","bonus_ok":False,
+         "desc":"High plank. Tap opposite shoulder. Hips stay square.",
+         "cues":["High plank feet wide","Hips square","Tap opposite shoulder","Controlled"]},
+        {"name":"Pseudo Planche Lean","sets":3,"reps":"5×5 sec","rest":90,"emoji":"📐","color":"#f5a623","bonus_ok":False,
+         "desc":"Push-up position, fingers out. Lean forward past hands. Extreme front delt.",
+         "cues":["Fingers at 45°","Lean past hands","Round upper back","Hold 5 sec"]},
+        {"name":"Pike Negatives","sets":3,"reps":"4-6","rest":90,"emoji":"⬇️","color":"#ff4444","bonus_ok":False,
+         "desc":"Pike position. 6 seconds to lower. Don't press back up. Reset.",
+         "cues":["6 seconds down","Count out loud","Head lightly touches","Reset"]},
+    ],
+    "shoulders_bonus": [
+        {"name":"Arm Circles","sets":3,"reps":"15 each direction","rest":20,"emoji":"⭕","color":"#c8f55a","bonus_ok":True,
+         "desc":"Large slow arm circles. Great shoulder mobility and light activation.",
+         "cues":["Arms fully extended","Large circles","Both directions","Controlled"]},
+        {"name":"Wall Shoulder Press","sets":3,"reps":"15","rest":30,"emoji":"🧱","color":"#6dc87a","bonus_ok":True,
+         "desc":"Stand, slide arms up a wall. Light shoulder endurance.",
+         "cues":["Arms on wall","Slide up slowly","Full extension","Slide back down"]},
     ],
     "full": [
-        {"name":"Burpees","sets":3,"reps":"10-12","rest":75,"emoji":"💥","color":"#c8f55a","duration_min":0.45,
-         "desc":"Stand → squat → plank → push-up → jump feet forward → jump up arms overhead. Every rep, full range.",
-         "cues":["Controlled squat down","Full push-up — chest to floor","Jump feet forward","Explosive jump overhead"]},
-        {"name":"Push-ups","sets":3,"reps":"12-15","rest":60,"emoji":"🤲","color":"#5ab4ff","duration_min":0.35,
-         "desc":"Shoulder-width, chest to floor, explode up. Rigid body throughout.",
-         "cues":["Shoulder-width grip","Chest to floor","Explode upward","Core tight — full body"]},
-        {"name":"Bodyweight Squats","sets":3,"reps":"15-20","rest":60,"emoji":"🦵","color":"#6dc87a","duration_min":0.4,
-         "desc":"Full depth every rep. Chest proud. Knees track toes. Drive through full foot.",
+        {"name":"Burpees","sets":3,"reps":"10-12","rest":75,"emoji":"💥","color":"#c8f55a","bonus_ok":False,
+         "desc":"Squat → plank → push-up → jump up. Full body.",
+         "cues":["Controlled squat down","Full push-up","Jump feet forward","Explosive jump"]},
+        {"name":"Push-ups","sets":3,"reps":"12-15","rest":60,"emoji":"🤲","color":"#5ab4ff","bonus_ok":False,
+         "desc":"Shoulder-width, chest to floor, push explosively.",
+         "cues":["Shoulder-width","Chest to floor","Explode up","Core tight"]},
+        {"name":"Bodyweight Squats","sets":3,"reps":"15-20","rest":60,"emoji":"🦵","color":"#6dc87a","bonus_ok":False,
+         "desc":"Full depth. Chest proud. Knees track toes.",
          "cues":["Full depth","Chest proud","Knees don't cave","Drive through full foot"]},
-        {"name":"Mountain Climbers","sets":3,"reps":"20 each","rest":45,"emoji":"⛰️","color":"#f5a623","duration_min":0.35,
-         "desc":"High plank, drive knees alternately. Hips level. Core endurance.",
-         "cues":["Hips level","Drive knee fully","Controlled pace","Shoulders over wrists"]},
-        {"name":"Glute Bridges","sets":3,"reps":"15-20","rest":45,"emoji":"🌉","color":"#ff4444","duration_min":0.35,
-         "desc":"On back, feet flat. Max glute squeeze at top. 2-second hold. Lower slowly.",
-         "cues":["Drive hips up","Max glute squeeze","2-second hold","Lower slowly"]},
+        {"name":"Mountain Climbers","sets":3,"reps":"20 each","rest":45,"emoji":"⛰️","color":"#f5a623","bonus_ok":False,
+         "desc":"High plank, drive knees alternately. Hips level.",
+         "cues":["Hips level","Drive knee fully","Controlled","Shoulders over wrists"]},
+        {"name":"Glute Bridges","sets":3,"reps":"15-20","rest":45,"emoji":"🌉","color":"#ff4444","bonus_ok":False,
+         "desc":"Max glute squeeze at top. 2-sec hold. Lower slowly.",
+         "cues":["Drive hips up","Max squeeze","2-sec hold","Lower slowly"]},
+    ],
+    "full_bonus": [
+        {"name":"High Knees","sets":3,"reps":"20 each","rest":30,"emoji":"🏃","color":"#c8f55a","bonus_ok":True,
+         "desc":"Light cardio. Drive knees above hip height alternately.",
+         "cues":["Knees above hips","Arms pump","Light on feet","Steady rhythm"]},
+        {"name":"Standing Oblique Crunches","sets":3,"reps":"15 each","rest":30,"emoji":"🔄","color":"#6dc87a","bonus_ok":True,
+         "desc":"Stand, crunch elbow to same-side knee. Light core.",
+         "cues":["Stand tall","Elbow to knee","Control the crunch","Alternate sides"]},
+        {"name":"Jumping Jacks","sets":3,"reps":"25","rest":30,"emoji":"🌟","color":"#5ab4ff","bonus_ok":True,
+         "desc":"Classic cardio. Arms and legs out together, back in.",
+         "cues":["Jump feet out","Arms overhead","Jump back in","Steady pace"]},
     ],
 }
 
-# ─── CALORIE ESTIMATION ──────────────────────────────────────────────────────
-def estimate_calories(user_metrics, intensity, total_sets, num_exercises):
-    """
-    Mifflin-St Jeor BMR × activity factor gives TDEE.
-    For workout calorie burn we use MET × weight × duration.
-    MET values per intensity: beginner=3.5, intermediate=5.0, advanced=6.5, athlete=8.0
-    """
-    weight_kg = user_metrics.get("weight_kg", 70)
-    age       = user_metrics.get("age", 25)
-    height_cm = user_metrics.get("height_cm", 170)
-    gender    = user_metrics.get("gender", "male")
-    met       = INTENSITY_CONFIG.get(intensity, INTENSITY_CONFIG["intermediate"])["met"]
-
-    # Estimate workout duration in minutes (avg 40s per set + rest)
-    avg_rest_sec = INTENSITY_CONFIG.get(intensity, {}).get("rest_mult", 1.0) * 60
-    est_duration_min = total_sets * (0.67 + avg_rest_sec / 60)
-
-    # Calories = MET × weight_kg × duration_hours
-    kcal = met * weight_kg * (est_duration_min / 60)
-    return round(kcal)
-
-def predict_weight_change(kcal_burned, weight_kg):
-    """1 kg fat ≈ 7700 kcal. Returns kg lost (negative = loss)."""
-    kg_change = -(kcal_burned / 7700)
-    return round(kg_change, 4)
-
-# ─── HELPERS ─────────────────────────────────────────────────────────────────
+# ─── HELPERS ──────────────────────────────────────────────────────────
 def load_users():
     if os.path.exists(USERS_FILE):
         try:
@@ -256,102 +286,134 @@ def load_users():
             pass
     return {}
 
-def save_users(users):
+def save_users(u):
     with open(USERS_FILE, "w") as f:
-        json.dump(users, f, indent=2)
+        json.dump(u, f, indent=2)
 
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
-def current_user():
-    uid = session.get("user_id")
+def cur_user():
+    uid = session.get("uid")
     if not uid:
         return None, None
     users = load_users()
     return uid, users.get(uid)
 
-def get_week_key():
-    today = datetime.date.today()
-    return (today - datetime.timedelta(days=today.weekday())).isoformat()
+def week_key():
+    d = datetime.date.today()
+    return (d - datetime.timedelta(days=d.weekday())).isoformat()
 
-def today_key():
+def today_str():
     return datetime.date.today().isoformat()
 
-def apply_intensity(exercises, intensity):
+def apply_intensity(exs, intensity):
     cfg = INTENSITY_CONFIG.get(intensity, INTENSITY_CONFIG["intermediate"])
-    result = []
-    for ex in exercises:
-        e = dict(ex)
-        e["sets"] = max(1, round(ex["sets"] * cfg["sets_mult"]))
-        e["rest"]  = max(20, round(ex["rest"]  * cfg["rest_mult"]))
-        result.append(e)
-    return result
+    return [{**e, "sets":max(1,round(e["sets"]*cfg["sets_mult"])),
+             "rest":max(20,round(e["rest"]*cfg["rest_mult"]))} for e in exs]
 
-def pick_daily_quizzes(seed_date=None):
-    d = seed_date or today_key()
-    rng = random.Random(d)
-    return rng.sample(QUIZ_BANK, 3)
+def estimate_kcal(metrics, intensity, total_sets):
+    """MET × weight × duration_hours"""
+    w   = float(metrics.get("weight_kg") or 70)
+    met = INTENSITY_CONFIG.get(intensity, INTENSITY_CONFIG["intermediate"])["met"]
+    rest_mult = INTENSITY_CONFIG.get(intensity, INTENSITY_CONFIG["intermediate"])["rest_mult"]
+    dur_min = total_sets * (0.7 + rest_mult)      # rough: 42s effort + rest per set
+    return round(met * w * dur_min / 60)
 
-def default_user_data(uid, email, name, password):
+def check_streak(user):
+    """Legacy no-op kept for call-sites. Streak is now day-based."""
+    return user
+
+def refresh_streak(user):
+    """
+    Call on state load. Detects missed days and sets streak_broken flag
+    so the frontend can prompt the user to spend a shield or accept the loss.
+    Does NOT auto-consume shields — that happens via /api/streak/resolve.
+    """
+    last = user.get("last_workout_date")
+    if not last:
+        user["streak_at_risk"] = False
+        user["streak_broken"]  = False
+        return user
+    today = datetime.date.today()
+    yesterday = (today - datetime.timedelta(days=1)).isoformat()
+    today_s   = today.isoformat()
+    if last == today_s:
+        user["streak_at_risk"] = False
+        user["streak_broken"]  = False
+    elif last == yesterday:
+        user["streak_at_risk"] = True
+        user["streak_broken"]  = False
+    else:
+        # Missed at least one full day — streak is broken until resolved
+        user["streak_at_risk"] = False
+        user["streak_broken"]  = True
+    return user
+
+def new_user(uid, email, name, pw, metrics=None):
     return {
-        "id":uid,"email":email,"name":name,"password":password,
-        "setup":False,
-        "days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
+        "id":uid,"email":email,"name":name,"pw":hash_pw(pw),
+        "setup":False,"days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
         "streak":0,"best_streak":0,"streak_at_risk":False,
         "gems":0,"shields":0,
         "total_sessions":0,"history":[],
-        "week_done":{},"last_week":None,
-        # challenges
-        "quiz_completed_today":[],"quiz_date":None,
-        "quiz_lives":CHALLENGE_LIVES,"quiz_lives_date":None,
-        # bonus
-        "bonus_workout_date":None,"bonus_workouts_today":0,
-        # body metrics
-        "metrics":{"weight_kg":None,"height_cm":None,"age":None,"gender":"male"},
-        "weight_log":[],   # [{date, weight_kg, kcal_burned, predicted_kg}]
-        "created_at":datetime.date.today().isoformat(),
+        "week_done":{},"last_week":None,"week_reward_claimed":None,
+        "quiz_done_date":None,        # date of last completed quiz
+        "quiz_lives":QUIZ_LIVES,"quiz_lives_date":None,
+        "bonus_date":None,
+        "metrics": metrics or {"weight_kg":None,"height_cm":None,"age":None,"gender":"male"},
+        "weight_log":[],
+        "settings":{"sound":True,"vibration":True},
+        "created":today_str(),
     }
 
-def check_streak_continuity(user):
-    completed = len(user.get("week_done", {}))
-    goal      = user.get("days_per_week", 3)
-    if completed < goal and user.get("streak", 0) > 0:
-        user["streak"] = 0
-        user["streak_at_risk"] = False
-    return user
-
-# ─── AUTH ─────────────────────────────────────────────────────────────────────
+# ─── AUTH ──────────────────────────────────────────────────────────────
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
-    body  = request.json or {}
-    email = (body.get("email") or "").strip().lower()
-    pw    = body.get("password") or ""
-    name  = (body.get("name") or "").strip()
+    b = request.json or {}
+    email  = (b.get("email") or "").strip().lower()
+    pw     = b.get("pw") or ""
+    name   = (b.get("name") or "").strip()
+    weight = b.get("weight_kg")
+    height = b.get("height_cm")
+    age    = b.get("age")
+    gender = b.get("gender","male")
     if not email or not pw or not name:
-        return jsonify({"error":"All fields are required"}), 400
+        return jsonify({"error":"Name, email and password are required"}), 400
     if len(pw) < 6:
         return jsonify({"error":"Password must be at least 6 characters"}), 400
     users = load_users()
-    if any(u["email"] == email for u in users.values()):
+    if any(u["email"]==email for u in users.values()):
         return jsonify({"error":"Email already registered"}), 409
     uid = str(uuid.uuid4())
-    users[uid] = default_user_data(uid, email, name, hash_pw(pw))
+    metrics = {
+        "weight_kg": float(weight) if weight else None,
+        "height_cm": float(height) if height else None,
+        "age":       int(age)      if age    else None,
+        "gender":    gender,
+    }
+    u = new_user(uid, email, name, pw, metrics)
+    # Seed weight log if weight given
+    if metrics["weight_kg"]:
+        u["weight_log"].append({"date":today_str(),"weight_kg":metrics["weight_kg"],"kcal":0,"kg_change":0})
+    users[uid] = u
     save_users(users)
-    session["user_id"] = uid
+    session["uid"] = uid
     return jsonify({"ok":True,"name":name})
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    body  = request.json or {}
-    email = (body.get("email") or "").strip().lower()
-    pw    = body.get("password") or ""
+    b = request.json or {}
+    email = (b.get("email") or "").strip().lower()
+    pw    = b.get("pw") or ""
     users = load_users()
     for uid, u in users.items():
-        if u["email"] == email and u["password"] == hash_pw(pw):
-            session["user_id"] = uid
-            wk = get_week_key()
+        stored_pw = u.get("pw") or u.get("password") or ""
+        if u["email"]==email and stored_pw==hash_pw(pw):
+            session["uid"] = uid
+            wk = week_key()
             if u.get("last_week") != wk:
-                u = check_streak_continuity(u)
+                u = check_streak(u)
                 u["week_done"] = {}
                 u["last_week"] = wk
                 users[uid] = u
@@ -366,393 +428,512 @@ def logout():
 
 @app.route("/api/auth/me")
 def me():
-    uid, user = current_user()
-    if not user:
+    uid, u = cur_user()
+    if not u:
         return jsonify({"logged_in":False})
-    return jsonify({"logged_in":True,"name":user["name"],"email":user["email"],"setup":user.get("setup",False)})
+    return jsonify({"logged_in":True,"name":u["name"],"email":u["email"],"setup":u.get("setup",False)})
 
-# ─── MAIN ROUTES ──────────────────────────────────────────────────────────────
+# ─── MAIN ─────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
 
 @app.route("/api/state")
-def get_state():
-    uid, user = current_user()
-    if not user:
+def state():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
     users = load_users()
-    wk = get_week_key()
-    if user.get("last_week") != wk:
-        user = check_streak_continuity(user)
-        user["week_done"] = {}
-        user["last_week"] = wk
-        users[uid] = user
+    wk = week_key()
+    td = today_str()
+    changed = False
+    # Week rollover: just reset week_done tracker (streak is now day-based)
+    if u.get("last_week") != wk:
+        u["week_done"] = {}
+        u["last_week"] = wk
+        u["week_reward_claimed"] = None  # allow claim again this new week
+        changed = True
+    # Daily streak refresh
+    u = refresh_streak(u)
+    changed = True
+    if u.get("quiz_lives_date") != td:
+        u["quiz_lives"] = QUIZ_LIVES
+        u["quiz_lives_date"] = td
+        u["quiz_session"] = []       # reset daily quiz session
+        u["quiz_done_date"] = None   # allow fresh quiz today
+        changed = True
+    if changed:
+        users[uid] = u
         save_users(users)
-    # Reset quiz lives daily
-    td = today_key()
-    if user.get("quiz_lives_date") != td:
-        user["quiz_lives"] = CHALLENGE_LIVES
-        user["quiz_lives_date"] = td
-        users[uid] = user
-        save_users(users)
-    safe = {k:v for k,v in user.items() if k != "password"}
+    # Ensure streak_broken field is always present
+    u.setdefault("streak_broken", False)
+    safe = {k:v for k,v in u.items() if k not in ("pw",)}
     safe.update({
-        "gems_per_workout":GEMS_PER_WORKOUT,"shield_cost":SHIELD_COST,"shield_max":SHIELD_MAX,
-        "bonus_workout_cost":BONUS_WORKOUT_COST,"challenge_limit":CHALLENGE_DAILY_LIMIT,
-        "gem_packages":GEM_PACKAGES,"revive_cost":REVIVE_COST,
+        "gems_per_workout":GEMS_PER_WORKOUT,"shield_cost":SHIELD_COST,
+        "shield_max":SHIELD_MAX,"bonus_cost":BONUS_COST,
+        "revive_cost":REVIVE_COST,"gem_packages":GEM_PACKAGES,
+        "quiz_daily_limit":QUIZ_DAILY_LIMIT,"quiz_max_lives":QUIZ_LIVES,
     })
     return jsonify(safe)
 
 @app.route("/api/setup", methods=["POST"])
 def setup():
-    uid, user = current_user()
-    if not user:
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    body = request.json or {}
-    user["setup"]         = True
-    user["days_per_week"] = body["days_per_week"]
-    user["muscle_groups"] = body["muscle_groups"]
-    user["intensity"]     = body.get("intensity","intermediate")
-    groups = body["muscle_groups"]
-    user["plan"] = [groups[i % len(groups)] for i in range(body["days_per_week"])]
+    b = request.json or {}
+    u["setup"]         = True
+    u["days_per_week"] = b["days_per_week"]
+    u["muscle_groups"] = b["muscle_groups"]
+    u["intensity"]     = b.get("intensity","intermediate")
+    g = b["muscle_groups"]
+    u["plan"] = [g[i%len(g)] for i in range(b["days_per_week"])]
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
     return jsonify({"ok":True})
 
 @app.route("/api/profile", methods=["POST"])
-def update_profile():
-    uid, user = current_user()
-    if not user:
+def profile():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    body = request.json or {}
-    if "name" in body and body["name"].strip():
-        user["name"] = body["name"].strip()
-    if "days_per_week" in body:
-        user["days_per_week"] = int(body["days_per_week"])
-    if "muscle_groups" in body and body["muscle_groups"]:
-        user["muscle_groups"] = body["muscle_groups"]
-    if "intensity" in body:
-        user["intensity"] = body["intensity"]
-    groups = user.get("muscle_groups", [])
-    if groups:
-        user["plan"] = [groups[i % len(groups)] for i in range(user["days_per_week"])]
+    b = request.json or {}
+    if b.get("name"):      u["name"] = b["name"].strip()
+    if b.get("days_per_week"): u["days_per_week"] = int(b["days_per_week"])
+    if b.get("muscle_groups"): u["muscle_groups"] = b["muscle_groups"]
+    if b.get("intensity"):     u["intensity"] = b["intensity"]
+    g = u.get("muscle_groups",[])
+    if g: u["plan"] = [g[i%len(g)] for i in range(u["days_per_week"])]
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
     return jsonify({"ok":True})
 
-@app.route("/api/metrics", methods=["POST"])
-def update_metrics():
-    uid, user = current_user()
-    if not user:
+@app.route("/api/settings", methods=["POST"])
+def settings():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    body = request.json or {}
-    m = user.get("metrics", {})
-    if "weight_kg" in body and body["weight_kg"]:
-        m["weight_kg"] = float(body["weight_kg"])
-    if "height_cm" in body and body["height_cm"]:
-        m["height_cm"] = float(body["height_cm"])
-    if "age" in body and body["age"]:
-        m["age"] = int(body["age"])
-    if "gender" in body:
-        m["gender"] = body["gender"]
-    user["metrics"] = m
-    # Log current weight
-    if m.get("weight_kg"):
-        td = today_key()
-        wl = user.get("weight_log", [])
-        existing = next((x for x in wl if x["date"] == td), None)
-        if not existing:
-            wl.append({"date":td,"weight_kg":m["weight_kg"],"kcal_burned":0,"predicted_kg":m["weight_kg"]})
-            user["weight_log"] = wl
+    b = request.json or {}
+    u.setdefault("settings",{})
+    if "sound"     in b: u["settings"]["sound"]     = bool(b["sound"])
+    if "vibration" in b: u["settings"]["vibration"] = bool(b["vibration"])
     users = load_users()
-    users[uid] = user
+    users[uid] = u
+    save_users(users)
+    return jsonify({"ok":True,"settings":u["settings"]})
+
+@app.route("/api/metrics", methods=["POST"])
+def metrics():
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    b = request.json or {}
+    m = u.get("metrics",{})
+    if b.get("weight_kg"): m["weight_kg"] = float(b["weight_kg"])
+    if b.get("height_cm"): m["height_cm"] = float(b["height_cm"])
+    if b.get("age"):       m["age"]       = int(b["age"])
+    if "gender" in b:      m["gender"]    = b["gender"]
+    u["metrics"] = m
+    td = today_str()
+    wl = u.get("weight_log",[])
+    if m.get("weight_kg"):
+        ex = next((x for x in wl if x["date"]==td),None)
+        if not ex:
+            wl.append({"date":td,"weight_kg":m["weight_kg"],"kcal":0,"kg_change":0})
+            u["weight_log"] = wl
+        else:
+            ex["weight_kg"] = m["weight_kg"]
+    users = load_users()
+    users[uid] = u
     save_users(users)
     return jsonify({"ok":True,"metrics":m})
 
-@app.route("/api/progress/weight_log")
+@app.route("/api/weight_log")
 def weight_log():
-    uid, user = current_user()
-    if not user:
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    log = user.get("weight_log", [])
-    # Last 30 entries
-    return jsonify({"log":log[-30:],"metrics":user.get("metrics",{})})
+    return jsonify({"log":u.get("weight_log",[])[-60:],"metrics":u.get("metrics",{})})
 
 @app.route("/api/workout/today")
-def get_today_workout():
-    uid, user = current_user()
-    if not user:
+def today_workout():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    dow   = datetime.date.today().weekday()
-    plan  = user.get("plan", [])
+    dow  = datetime.date.today().weekday()
+    plan = u.get("plan",[])
     if not plan:
         return jsonify({"error":"No plan"}), 400
-    group     = plan[dow % len(plan)]
-    intensity = user.get("intensity","intermediate")
-    exercises = apply_intensity(WORKOUTS.get(group,[]), intensity)
-    already_done = str(dow) in user.get("week_done",{})
-    gems_reward  = GEMS_PER_WORKOUT + INTENSITY_CONFIG[intensity]["gems_bonus"]
-    td = today_key()
-    bonus_done = user.get("bonus_workouts_today",0) if user.get("bonus_workout_date")==td else 0
+    group    = plan[dow % len(plan)]
+    intens   = u.get("intensity","intermediate")
+    exs      = apply_intensity(WORKOUTS.get(group,[]), intens)
+    td         = today_str()
+    done_today = u.get("last_workout_date") == td
+    reward     = GEMS_PER_WORKOUT + INTENSITY_CONFIG[intens]["gems_bonus"]
+    bonus_done = u.get("bonus_date") == td
     return jsonify({
-        "group":group,"exercises":exercises,"already_done":already_done,"dow":dow,
-        "intensity":intensity,"days_done":len(user.get("week_done",{})),
-        "days_per_week":user.get("days_per_week",3),"gems_reward":gems_reward,
-        "bonus_cost":BONUS_WORKOUT_COST,"bonus_done":bonus_done,
+        "group":group,"exercises":exs,"done_today":done_today,"dow":dow,
+        "intensity":intens,"days_done":len(u.get("week_done",{})),
+        "days_per_week":u.get("days_per_week",3),"gems_reward":reward,
+        "bonus_cost":BONUS_COST,"bonus_done":bonus_done,
     })
+
+@app.route("/api/workout/bonus_exercises")
+def bonus_exercises():
+    """Return lighter bonus exercises for a chosen muscle group."""
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    group  = request.args.get("group","full")
+    intens = u.get("intensity","intermediate")
+    key    = group + "_bonus"
+    exs    = WORKOUTS.get(key, WORKOUTS.get(group,[]))
+    # Bonus: always beginner intensity (lighter)
+    out = apply_intensity(exs, "beginner")
+    return jsonify({"group":group,"exercises":out})
 
 @app.route("/api/workout/complete", methods=["POST"])
-def complete_workout():
-    uid, user = current_user()
-    if not user:
+def complete():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
+    b         = request.json or {}
     dow       = datetime.date.today().weekday()
-    week_done = user.get("week_done",{})
-    body      = request.json or {}
-    is_bonus  = body.get("is_bonus", False)
-    total_sets = body.get("sets", 10)
-    num_ex     = body.get("exercises", 5)
-    intensity  = user.get("intensity","intermediate")
-    gems_earned = 0
-
-    # Calorie calculation
-    metrics = user.get("metrics",{})
-    kcal = 0
-    if metrics.get("weight_kg"):
-        kcal = estimate_calories(metrics, intensity, total_sets, num_ex)
-        kg_change = predict_weight_change(kcal, metrics["weight_kg"])
-        # Update weight log
-        td = today_key()
-        wl = user.get("weight_log",[])
-        entry = next((x for x in wl if x["date"]==td), None)
-        if entry:
-            entry["kcal_burned"] = entry.get("kcal_burned",0) + kcal
-            cur_w = entry.get("weight_kg", metrics["weight_kg"])
-            entry["predicted_kg"] = round(cur_w + kg_change, 2)
+    is_bonus  = b.get("is_bonus",False)
+    total_sets= b.get("sets",10)
+    intens    = u.get("intensity","intermediate")
+    kcal      = 0
+    m         = u.get("metrics",{})
+    if m.get("weight_kg"):
+        kcal = estimate_kcal(m, intens, total_sets)
+        kg_ch = -(kcal / 7700)
+        td = today_str()
+        wl = u.get("weight_log",[])
+        ex = next((x for x in wl if x["date"]==td),None)
+        if ex:
+            ex["kcal"]      = round(ex.get("kcal",0) + kcal)
+            ex["kg_change"] = round(ex.get("kg_change",0) + kg_ch, 4)
         else:
-            base_w = metrics["weight_kg"]
-            wl.append({"date":td,"weight_kg":base_w,"kcal_burned":kcal,
-                        "predicted_kg":round(base_w+kg_change,2)})
-        user["weight_log"] = wl
+            wl.append({"date":td,"weight_kg":m["weight_kg"],"kcal":kcal,"kg_change":round(kg_ch,4)})
+        u["weight_log"] = wl
+
+    gems_earned = 0
+    td = today_str()
+    already_done_today = u.get("last_workout_date") == td
 
     if is_bonus:
-        gems_earned = GEMS_PER_WORKOUT + INTENSITY_CONFIG[intensity]["gems_bonus"]
-        user["gems"] = user.get("gems",0) + gems_earned
-        user["total_sessions"] = user.get("total_sessions",0) + 1
-        td = today_key()
-        user["bonus_workout_date"] = td
-        user["bonus_workouts_today"] = user.get("bonus_workouts_today",0)+1
-    elif str(dow) not in week_done:
-        week_done[str(dow)] = True
-        user["week_done"]      = week_done
-        user["total_sessions"] = user.get("total_sessions",0)+1
-        gems_earned = GEMS_PER_WORKOUT + INTENSITY_CONFIG[intensity]["gems_bonus"]
-        user["gems"] = user.get("gems",0) + gems_earned
-        days_done = len(week_done)
-        goal      = user.get("days_per_week",3)
-        if days_done >= goal:
-            user["streak"]      = user.get("streak",0)+1
-            user["best_streak"] = max(user.get("best_streak",0), user["streak"])
-            user["streak_at_risk"] = False
+        gems_earned = GEMS_PER_WORKOUT
+        u["gems"] = u.get("gems",0) + gems_earned
+        u["total_sessions"] = u.get("total_sessions",0)+1
+        u["bonus_date"] = td
+    elif not already_done_today:
+        # Mark week slot
+        u.setdefault("week_done",{})[str(dow)] = True
+        u["total_sessions"] = u.get("total_sessions",0)+1
+        gems_earned = GEMS_PER_WORKOUT + INTENSITY_CONFIG[intens]["gems_bonus"]
+        u["gems"] = u.get("gems",0) + gems_earned
+        # ── Day-based streak ──────────────────────────────────────
+        last = u.get("last_workout_date")
+        yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+        if last == yesterday or (last is None):
+            # consecutive day, or very first workout ever
+            u["streak"] = u.get("streak",0) + 1
         else:
-            user["streak_at_risk"] = True
+            # gap of 2+ days — reset to 1 (this workout counts as day 1)
+            u["streak"] = 1
+        u["best_streak"]     = max(u.get("best_streak",0), u["streak"])
+        u["streak_at_risk"]  = False
+        u["last_workout_date"] = td
 
-    user.setdefault("history",[]).append({
-        "date":datetime.date.today().strftime("%b %d, %Y"),
-        "group":body.get("group",""),"exercises":num_ex,"sets":total_sets,
-        "intensity":intensity,"gems":gems_earned,"kcal":kcal,"bonus":is_bonus,
+    # ── Weekly goal reward (once per week, not for bonus workouts) ────
+    week_bonus = 0
+    wk = week_key()
+    done_this_week = len(u.get("week_done", {}))
+    goal = u.get("days_per_week", 3)
+    if (not is_bonus
+            and done_this_week >= goal
+            and u.get("week_reward_claimed") != wk):
+        u["week_reward_claimed"] = wk
+        week_bonus = WEEK_REWARD
+        u["gems"] = u.get("gems", 0) + week_bonus
+        gems_earned += week_bonus
+
+    u.setdefault("history",[]).append({
+        "date": datetime.date.today().strftime("%b %d, %Y"),
+        "group":b.get("group",""),"exercises":b.get("exercises",5),
+        "sets":total_sets,"intensity":intens,"gems":gems_earned,"kcal":kcal,"bonus":is_bonus,
     })
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
     return jsonify({
-        "streak":user["streak"],"best_streak":user["best_streak"],
-        "gems":user["gems"],"gems_earned":gems_earned,"shields":user.get("shields",0),
-        "days_done":len(user["week_done"]),"days_goal":user.get("days_per_week",3),
-        "streak_at_risk":user.get("streak_at_risk",False),"kcal":kcal,
+        "streak":u["streak"],"best_streak":u["best_streak"],
+        "gems":u["gems"],"gems_earned":gems_earned,
+        "shields":u.get("shields",0),
+        "days_done":len(u.get("week_done",{})),
+        "days_goal":u.get("days_per_week",3),
+        "streak_at_risk":u.get("streak_at_risk",False),
+        "kcal":kcal,
+        "week_bonus":week_bonus,
     })
 
-@app.route("/api/workout/bonus_unlock", methods=["POST"])
+@app.route("/api/bonus_unlock", methods=["POST"])
 def bonus_unlock():
-    uid, user = current_user()
-    if not user:
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    body = request.json or {}
-    method = body.get("method","gems")  # "gems" or "ad"
+    method = (request.json or {}).get("method","gems")
     if method == "gems":
-        if user.get("gems",0) < BONUS_WORKOUT_COST:
-            return jsonify({"error":f"Need {BONUS_WORKOUT_COST} gems. You have {user.get('gems',0)}"}), 400
-        user["gems"] -= BONUS_WORKOUT_COST
-    # "ad" method: trust client that ad was shown (in prod, verify with ad network token)
+        if u.get("gems",0) < BONUS_COST:
+            return jsonify({"error":f"Need {BONUS_COST} gems. You have {u.get('gems',0)}"}), 400
+        u["gems"] -= BONUS_COST
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
-    return jsonify({"ok":True,"gems":user.get("gems",0)})
+    return jsonify({"ok":True,"gems":u.get("gems",0)})
 
-# ─── QUIZZES ──────────────────────────────────────────────────────────────────
+# ─── QUIZ ──────────────────────────────────────────────────────────────
+QUIZ_QUESTIONS_PER_DAY = 10
+
+def get_daily_question_order(td):
+    """Return 10 shuffled question IDs for today, seeded by date."""
+    rng = random.Random(td)
+    ids = [q["id"] for q in QUIZ_BANK]
+    rng.shuffle(ids)
+    return ids[:QUIZ_QUESTIONS_PER_DAY]
+
+def get_question_by_id(qid):
+    return next((q for q in QUIZ_BANK if q["id"] == qid), None)
+
 @app.route("/api/quiz/today")
-def get_quizzes():
-    uid, user = current_user()
-    if not user:
+def quiz_today():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    td = today_key()
-    if user.get("quiz_date") != td:
-        user["quiz_completed_today"] = []
-        user["quiz_date"] = td
+    td = today_str()
+    # Reset session daily
+    if u.get("quiz_lives_date") != td:
+        u["quiz_lives"]     = QUIZ_LIVES
+        u["quiz_lives_date"]= td
+        u["quiz_session"]   = []     # answered question IDs today
+        u["quiz_done_date"] = None
         users = load_users()
-        users[uid] = user
+        users[uid] = u
         save_users(users)
-    if user.get("quiz_lives_date") != td:
-        user["quiz_lives"] = CHALLENGE_LIVES
-        user["quiz_lives_date"] = td
-        users = load_users()
-        users[uid] = user
-        save_users(users)
-    quizzes = pick_daily_quizzes(td)
-    completed = user.get("quiz_completed_today",[])
-    lives = user.get("quiz_lives", CHALLENGE_LIVES)
-    for q in quizzes:
-        q["completed"] = q["id"] in completed
-        q["options_only"] = q["options"]  # don't send answer
-        q.pop("answer", None)
-    return jsonify({
-        "quizzes":quizzes,"completed_count":len(completed),
-        "limit":CHALLENGE_DAILY_LIMIT,"lives":lives,"max_lives":CHALLENGE_LIVES,
-    })
+
+    done      = u.get("quiz_done_date") == td
+    lives     = u.get("quiz_lives", QUIZ_LIVES)
+    answered  = u.get("quiz_session", [])
+    order     = get_daily_question_order(td)
+    # Next unanswered question
+    remaining = [qid for qid in order if qid not in answered]
+    total     = len(order)
+    num_done  = len(answered)
+
+    if done or not remaining:
+        return jsonify({"done":True,"lives":lives,"max_lives":QUIZ_LIVES,
+                        "revive_cost":REVIVE_COST,"total":total,"num_done":num_done,
+                        "gems":u.get("gems",0)})
+
+    q = dict(get_question_by_id(remaining[0]))
+    q.pop("a", None)   # never leak the answer
+    return jsonify({"quiz":q,"done":False,"lives":lives,"max_lives":QUIZ_LIVES,
+                    "revive_cost":REVIVE_COST,"total":total,"num_done":num_done})
 
 @app.route("/api/quiz/answer", methods=["POST"])
-def answer_quiz():
-    uid, user = current_user()
-    if not user:
+def quiz_answer():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    body = request.json or {}
-    qid     = body.get("quiz_id")
-    answer  = body.get("answer")  # index
-    td      = today_key()
-    if user.get("quiz_lives_date") != td:
-        user["quiz_lives"] = CHALLENGE_LIVES
-        user["quiz_lives_date"] = td
-    if user.get("quiz_date") != td:
-        user["quiz_completed_today"] = []
-        user["quiz_date"] = td
-    lives     = user.get("quiz_lives", CHALLENGE_LIVES)
-    completed = user.get("quiz_completed_today",[])
+    b      = request.json or {}
+    answer = b.get("answer")
+    td     = today_str()
+    # Guard: session must be active today
+    if u.get("quiz_lives_date") != td:
+        u["quiz_lives"]     = QUIZ_LIVES
+        u["quiz_lives_date"]= td
+        u["quiz_session"]   = []
+        u["quiz_done_date"] = None
+    if u.get("quiz_done_date") == td:
+        return jsonify({"error":"Already done today"}), 400
+    lives = u.get("quiz_lives", QUIZ_LIVES)
     if lives <= 0:
-        return jsonify({"error":"No lives remaining. Watch an ad or use gems to revive.","lives":0}), 400
-    if len(completed) >= CHALLENGE_DAILY_LIMIT:
-        return jsonify({"error":"Daily quiz limit reached"}), 400
-    quiz = next((q for q in QUIZ_BANK if q["id"]==qid), None)
-    if not quiz:
-        return jsonify({"error":"Quiz not found"}), 404
-    if qid in completed:
-        return jsonify({"error":"Already completed"}), 400
-    correct = (answer == quiz["answer"])
+        return jsonify({"error":"no_lives"}), 400
+
+    order    = get_daily_question_order(td)
+    answered = u.get("quiz_session", [])
+    remaining= [qid for qid in order if qid not in answered]
+    if not remaining:
+        u["quiz_done_date"] = td
+        users = load_users(); users[uid] = u; save_users(users)
+        return jsonify({"error":"Already done today"}), 400
+
+    q = get_question_by_id(remaining[0])
+    correct = (answer == q["a"])
     gems_earned = 0
+
     if correct:
-        completed.append(qid)
-        user["quiz_completed_today"] = completed
-        gems_earned = quiz["gems"]
-        user["gems"] = user.get("gems",0) + gems_earned
+        answered.append(q["id"])
+        u["quiz_session"] = answered
+        gems_earned = 5   # small reward per correct answer
+        u["gems"] = u.get("gems",0) + gems_earned
+        # Session complete when all questions answered
+        if len(answered) >= len(order):
+            u["quiz_done_date"] = td
+            # Bonus for finishing the whole set
+            bonus = 20
+            u["gems"] = u.get("gems",0) + bonus
+            gems_earned += bonus
     else:
-        user["quiz_lives"] = lives - 1
+        u["quiz_lives"] = lives - 1
+        if u["quiz_lives"] <= 0:
+            u["quiz_done_date"] = td   # out of lives — session over
+
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
+    num_done  = len(u.get("quiz_session",[]))
+    total     = len(order)
+    session_done = u.get("quiz_done_date") == td
     return jsonify({
-        "correct":correct,"lives":user["quiz_lives"],"gems_earned":gems_earned,
-        "gems":user.get("gems",0),"explanation":quiz["explanation"],
-        "correct_answer":quiz["answer"],
+        "correct":correct,"lives":u["quiz_lives"],"gems_earned":gems_earned,
+        "gems":u["gems"],"explanation":q["exp"],"correct_answer":q["a"],
+        "num_done":num_done,"total":total,"session_done":session_done,
     })
 
 @app.route("/api/quiz/revive", methods=["POST"])
-def revive_quiz():
-    uid, user = current_user()
-    if not user:
+def quiz_revive():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    body   = request.json or {}
-    method = body.get("method","gems")
+    method = (request.json or {}).get("method","gems")
     if method == "gems":
-        if user.get("gems",0) < REVIVE_COST:
-            return jsonify({"error":f"Need {REVIVE_COST} gems. You have {user.get('gems',0)}"}), 400
-        user["gems"] -= REVIVE_COST
-    user["quiz_lives"]      = CHALLENGE_LIVES
-    user["quiz_lives_date"] = today_key()
+        if u.get("gems",0) < REVIVE_COST:
+            return jsonify({"error":f"Need {REVIVE_COST} gems"}), 400
+        u["gems"] -= REVIVE_COST
+    u["quiz_lives"]      = QUIZ_LIVES
+    u["quiz_lives_date"] = today_str()
+    u["quiz_done_date"]  = None   # allow continuing after revive
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
-    return jsonify({"ok":True,"lives":CHALLENGE_LIVES,"gems":user.get("gems",0)})
+    return jsonify({"ok":True,"lives":QUIZ_LIVES,"gems":u.get("gems",0)})
 
-# ─── GEMS & STORE ────────────────────────────────────────────────────────────
+# ─── STREAK RESOLVE ────────────────────────────────────────────────────
+@app.route("/api/streak/resolve", methods=["POST"])
+def streak_resolve():
+    """
+    Called when the user chooses what to do about a broken streak.
+    method='shield' — spend one shield to preserve the streak (no increment).
+    method='lose'   — accept the loss, streak resets to 0.
+    method='buy_shield' — buy a shield first, then immediately use it.
+    """
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    method = (request.json or {}).get("method","lose")
+    if not u.get("streak_broken"):
+        return jsonify({"error":"No broken streak to resolve"}), 400
+    if method == "shield":
+        if u.get("shields",0) < 1:
+            return jsonify({"error":"No shields available"}), 400
+        u["shields"]       -= 1
+        u["streak_broken"]  = False
+        u["streak_at_risk"] = True   # still at risk today until they work out
+        # streak number preserved, no increment
+    elif method == "buy_shield":
+        # Buy one shield (deduct gems) then immediately use it
+        if u.get("shields",0) >= SHIELD_MAX:
+            return jsonify({"error":f"Max {SHIELD_MAX} shields already owned"}), 400
+        if u.get("gems",0) < SHIELD_COST:
+            return jsonify({"error":f"Need {SHIELD_COST} gems. You have {u.get('gems',0)}"}), 400
+        u["gems"]          -= SHIELD_COST
+        # don't add to shields — use it immediately
+        u["streak_broken"]  = False
+        u["streak_at_risk"] = True
+    else:  # 'lose'
+        u["streak"]         = 0
+        u["streak_broken"]  = False
+        u["streak_at_risk"] = False
+        u["last_workout_date"] = None
+    users = load_users()
+    users[uid] = u
+    save_users(users)
+    return jsonify({
+        "ok":True,
+        "streak":u["streak"],
+        "shields":u.get("shields",0),
+        "gems":u.get("gems",0),
+        "streak_broken":False,
+    })
+
+# ─── STORE ────────────────────────────────────────────────────────────
 @app.route("/api/gems/buy_shield", methods=["POST"])
 def buy_shield():
-    uid, user = current_user()
-    if not user:
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    if user.get("shields",0) >= SHIELD_MAX:
-        return jsonify({"error":f"Max {SHIELD_MAX} shields allowed"}), 400
-    if user.get("gems",0) < SHIELD_COST:
-        return jsonify({"error":f"Need {SHIELD_COST} gems. You have {user.get('gems',0)}"}), 400
-    user["gems"]    -= SHIELD_COST
-    user["shields"] = user.get("shields",0)+1
+    if u.get("shields",0) >= SHIELD_MAX:
+        return jsonify({"error":f"Max {SHIELD_MAX} shields"}), 400
+    if u.get("gems",0) < SHIELD_COST:
+        return jsonify({"error":f"Need {SHIELD_COST} gems. You have {u.get('gems',0)}"}), 400
+    u["gems"]    -= SHIELD_COST
+    u["shields"] = u.get("shields",0)+1
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
-    return jsonify({"ok":True,"gems":user["gems"],"shields":user["shields"]})
+    return jsonify({"ok":True,"gems":u["gems"],"shields":u["shields"]})
 
 @app.route("/api/gems/use_shield", methods=["POST"])
 def use_shield():
-    uid, user = current_user()
-    if not user:
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    if user.get("shields",0) < 1:
-        return jsonify({"error":"No shields available"}), 400
-    user["shields"] -= 1
-    user["streak_at_risk"] = False
-    user["streak"]      = user.get("streak",0)+1
-    user["best_streak"] = max(user.get("best_streak",0), user["streak"])
+    if u.get("shields",0) < 1:
+        return jsonify({"error":"No shields"}), 400
+    u["shields"] -= 1
+    u["streak_at_risk"] = False
+    # Streak is preserved but NOT incremented — shield just protects it
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
-    return jsonify({"ok":True,"streak":user["streak"],"shields":user["shields"]})
+    return jsonify({"ok":True,"streak":u["streak"],"shields":u["shields"]})
 
 @app.route("/api/gems/purchase", methods=["POST"])
-def purchase_gems():
-    uid, user = current_user()
-    if not user:
+def purchase():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
-    body    = request.json or {}
-    pkg     = next((p for p in GEM_PACKAGES if p["id"]==body.get("package_id")), None)
+    pkg = next((p for p in GEM_PACKAGES if p["id"]==(request.json or {}).get("package_id")),None)
     if not pkg:
         return jsonify({"error":"Invalid package"}), 400
-    user["gems"] = user.get("gems",0) + pkg["gems"]
+    u["gems"] = u.get("gems",0) + pkg["gems"]
     users = load_users()
-    users[uid] = user
+    users[uid] = u
     save_users(users)
-    return jsonify({"ok":True,"gems":user["gems"],"gems_added":pkg["gems"],"package":pkg["label"]})
+    return jsonify({"ok":True,"gems":u["gems"],"gems_added":pkg["gems"],"package":pkg["label"]})
 
 @app.route("/api/reset", methods=["POST"])
-def reset_user():
-    uid, user = current_user()
-    if not user:
+def reset():
+    uid, u = cur_user()
+    if not u:
         return jsonify({"error":"Not logged in"}), 401
     users = load_users()
     users[uid].update({
         "setup":False,"days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
         "streak":0,"best_streak":0,"streak_at_risk":False,"gems":0,"shields":0,
         "total_sessions":0,"history":[],"week_done":{},"last_week":None,
-        "quiz_completed_today":[],"quiz_date":None,"quiz_lives":CHALLENGE_LIVES,"quiz_lives_date":None,
-        "bonus_workout_date":None,"bonus_workouts_today":0,
+        "quiz_done_date":None,"quiz_lives":QUIZ_LIVES,"quiz_lives_date":None,"bonus_date":None,"week_reward_claimed":None,
         "weight_log":[],"metrics":{"weight_kg":None,"height_cm":None,"age":None,"gender":"male"},
     })
     save_users(users)
     return jsonify({"ok":True})
 
 if __name__ == "__main__":
-    print("\n🏋️  STREAK — Calisthenics App  v5")
-    print("━"*40)
-    print("▶  Open: http://localhost:5000")
-    print("━"*40+"\n")
+    print("\n🏋️  StreakFit Calisthenics App v1")
+    print("━"*38)
+    print("▶  http://localhost:5000")
+    print("━"*38+"\n")
     app.run(debug=True, port=5000)
