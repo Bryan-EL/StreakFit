@@ -1,11 +1,12 @@
 # StreakFit 🏋️
 
-> Zero-equipment calisthenics trainer with streaks, gems, quizzes, and progress tracking — runs entirely in the browser, backed by a single Python file.
+> Zero-equipment calisthenics trainer with streaks, gems, premium programs, quizzes, and progress tracking — runs entirely in the browser, backed by a single Python file.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-2.x-black?logo=flask)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
+![Version](https://img.shields.io/badge/Version-1.1.0-brightgreen)
 
 ---
 
@@ -27,6 +28,8 @@
 
 StreakFit is a mobile-first progressive web app that helps you build a consistent calisthenics habit. It requires zero equipment — all exercises are floor-only. The app runs as a local Flask server with a single-page HTML frontend; no database, no npm, no build step.
 
+**New in v1.1.0:** Premium training programs, free daily ad rewards, and a unified profile screen.
+
 ---
 
 ## Features
@@ -34,12 +37,26 @@ StreakFit is a mobile-first progressive web app that helps you build a consisten
 | Category | Details |
 |---|---|
 | **Workouts** | 6 muscle groups (chest, back, legs, core, shoulders, full body) · 4 intensity levels · rest timer with ring animation |
+| **Premium Programs** | 5 structured multi-week programs · 7-day access per purchase · activate any week · multiple programs supported simultaneously |
 | **Streaks** | Day-based consecutive streak tracking independent of your weekly plan · shield protection system |
-| **Gems** | Earn gems by completing workouts, weekly goals, and quiz sessions · spend on shields and bonus workouts |
+| **Gems** | Earn gems by completing workouts, weekly goals, and quiz sessions · spend on shields, bonus workouts, and programs |
+| **Free Gems** | Watch one ad per day for 30 free gems — separate from bonus workout ads |
 | **Quiz** | 10 randomised fitness questions per day · 2 lives · revive with gems or an ad |
 | **Progress** | Weight trend graph · calorie estimates · session history · BMI tracker |
-| **Store** | Buy gem packages · purchase streak shields (max 2) |
+| **Store** | Buy gem packages · purchase streak shields (max 2) · daily free gems via ads |
 | **Onboarding** | 4-step setup: body stats → training days → muscle focus → intensity |
+
+---
+
+## Premium Programs (v1.1.0)
+
+| Program | Level | Weeks | Cost | Focus |
+|---------|-------|-------|------|-------|
+| 🦘 Jump & Vertical | Intermediate | 4 | 350 💎 | Explosive power, vertical leap |
+| 🤸 Handstand Progression | Advanced | 4 | 450 💎 | Freestanding handstand |
+| ⚡ Explosive HIIT | Intermediate | 3 | 300 💎 | Max calorie burn |
+| 🧘 Mobility & Flexibility | Beginner | 3 | 250 💎 | Movement quality, recovery |
+| 🎯 Pistol Squat Mastery | Advanced | 3 | 400 💎 | Single-leg strength |
 
 ---
 
@@ -64,7 +81,7 @@ pip install flask
 python app.py
 ```
 
-Then open **http://localhost:5000** in your browser.
+Then open http://localhost:5000 in your browser.
 
 > The app stores all user data in `users.json` in the project root. This file is created automatically on first signup.
 
@@ -113,6 +130,8 @@ All tuneable constants live at the top of `app.py`:
 | `REVIVE_COST` | `50` | Gems to revive quiz lives |
 | `QUIZ_LIVES` | `2` | Lives per daily quiz session |
 | `QUIZ_QUESTIONS_PER_DAY` | `10` | Questions served per daily session |
+| `AD_GEMS_REWARD` | `30` | Gems earned from daily store ad |
+| `PROGRAM_ACCESS_DAYS` | `7` | Days of access per program purchase |
 
 ---
 
@@ -143,10 +162,18 @@ All endpoints return JSON. Authentication uses server-side sessions (cookie-base
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/workout/today` | Today's exercises |
+| `GET` | `/api/workout/today` | Today's exercises + extra programs |
 | `GET` | `/api/workout/bonus_exercises` | Bonus workout exercises |
 | `POST` | `/api/workout/complete` | Mark workout done, award gems |
 | `POST` | `/api/bonus_unlock` | Spend gems/ad to unlock bonus |
+
+### Programs (v.1.1.0)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/programs/purchase` | Buy 7-day access to a program |
+| `POST` | `/api/programs/activate` | Set active program week for Today tab |
+| `GET` | `/api/programs/workout` | Get runnable workout for a program week |
 
 ### Quiz
 
@@ -164,7 +191,14 @@ All endpoints return JSON. Authentication uses server-side sessions (cookie-base
 | `POST` | `/api/gems/buy_shield` | Purchase a shield |
 | `POST` | `/api/gems/use_shield` | Manually use a shield |
 | `POST` | `/api/gems/purchase` | Buy a gem package |
+| `POST` | `/api/gems/watch_ad` | Claim daily free gems (v1.1.0) |
 | `POST` | `/api/reset` | Reset all user data |
+
+---
+
+## Contributing
+
+Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for details on our code of conduct, development setup, and pull request process.
 
 ---
 

@@ -10,6 +10,52 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] — 2026-04-23
+
+### Added
+
+**Premium Training Programs**
+- 5 structured multi-week programs: Jump & Vertical, Handstand Progression, Explosive HIIT, Mobility & Flexibility, Pistol Squat Mastery
+- Program costs: 250–450 gems for 7-day access
+- Program detail modal with week previews (locked exercises blurred until purchase)
+- Activate any week from within program modal
+- Support for multiple simultaneously active programs
+- Active programs appear as separate sections below daily plan in Today tab
+- Remove individual active programs without resetting everything
+
+**Free Gems via Ads**
+- New "Free" tab in Store with daily ad reward
+- Watch one simulated ad per day to earn 30 free gems
+- Daily claim tracking resets at midnight
+- Separate from bonus workout ad system
+
+**Store Reorganization**
+- Two tabs: "Gems" (purchase packages) and "Free" (daily ad rewards)
+- Cleaner visual separation of paid vs free options
+
+**Profile & Progress Merge**
+- Unified Profile screen with two tabs: Progress and Settings
+- Progress tab: streak stats, weight graph, BMI, calorie total, session history
+- Settings tab: body metrics, workout preferences, account controls
+
+**Weight Graph Improvements**
+- `predicted_kg` field for smoother trend lines
+- Graph now handles single data point gracefully
+- Better date labeling on x-axis
+
+### Changed
+- Bottom navigation now includes Programs tab (replaces old Progress nav item)
+- Version bumped from v1.0.0 to v1.1.0
+
+### Fixed
+- Fixed program activation not persisting across server restarts
+- Fixed weight graph breaking with only one data point
+- Fixed quiz lives display after revive
+- Fixed bonus unlock confirmation flow race conditions
+- Fixed store tab state not persisting after modal close
+
+---
+
 ## [1.0.0] — 2026-04-22
 
 ### Added
@@ -76,5 +122,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-[Unreleased]: https://github.com/your-username/streakfit/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/your-username/streakfit/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/your-username/streakfit/releases/tag/v1.1.0
 [1.0.0]: https://github.com/your-username/streakfit/releases/tag/v1.0.0

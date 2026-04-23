@@ -10,6 +10,7 @@ Thank you for taking the time to contribute! This document covers everything you
 - [How Can I Contribute?](#how-can-i-contribute)
 - [Development Setup](#development-setup)
 - [Project Conventions](#project-conventions)
+- [Adding a Premium Program](#adding-a-premium-program)
 - [Submitting a Pull Request](#submitting-a-pull-request)
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Features](#suggesting-features)
@@ -26,6 +27,7 @@ Be respectful, constructive, and inclusive. Harassment of any kind will not be t
 
 - Fix a bug — check [open issues](../../issues) labelled `bug`
 - Add a workout or quiz question
+- Add a new premium training program
 - Improve the UI or accessibility
 - Write tests
 - Improve documentation
@@ -99,6 +101,38 @@ Questions live in `QUIZ_BANK` in `app.py`:
     "exp": "Explanation shown after answering.",
 }
 ```
+
+### Adding a Premium Program
+
+Programs live in the `TRAINING_PROGRAMS` list in `app.py`. Each program needs:
+
+```python
+{
+    "id": "unique_id",
+    "title": "Program Name",
+    "emoji": "🏋️",
+    "cost": 350,
+    "color": "#c8f55a",
+    "tagline": "Short tagline for card display",
+    "description": "Detailed description shown in modal.",
+    "weeks": 4,
+    "level": "Intermediate",  # Beginner, Intermediate, Advanced
+    "workouts": [
+        {
+            "week": 1,
+            "focus": "Week Theme",
+            "exercises": [
+                "Exercise Name x10",
+                "Another Exercise 30s",
+                "Third Exercise x12"
+            ]
+        },
+        # ... more weeks
+    ]
+}
+```
+
+**Exercise string format:** `"Name xN"` for rep-based, `"Name Ns"` for time-based. The parser extracts the number automatically.
 
 ---
 

@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---|---|
-| 1.0.x | ✅ |
+| 1.1.x | ✅ |
+| 1.0.x | ✅ (critical fixes only) |
 
 ## Reporting a Vulnerability
 
@@ -29,3 +30,4 @@ StreakFit is designed as a local/personal-use application. Be aware of the follo
 - **No rate limiting** — The auth endpoints have no brute-force protection. Add Flask-Limiter or a reverse proxy rule for public deployments.
 - **HTTP only** — Always serve behind HTTPS in production (e.g. via Nginx + Let's Encrypt).
 - **Simulated payments** — The gem purchase flow is a demo; no real payment processing occurs.
+- **Program access** — Program access is time-based (7 days) and stored as plaintext expiry dates. For high-security deployments, consider moving to a token-based system with server-side validation.
