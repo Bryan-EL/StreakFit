@@ -5,7 +5,7 @@ Open:  http://localhost:5000
 """
 
 from flask import Flask, render_template, jsonify, request, session
-import json, os, datetime, hashlib, uuid, random
+import json, os, datetime, hashlib, uuid, random, re
 
 app = Flask(__name__)
 app.secret_key = "streakfit_v1_xk92_secret"
@@ -21,6 +21,8 @@ BONUS_COST         = 40
 REVIVE_COST        = 50
 QUIZ_LIVES         = 2
 QUIZ_DAILY_LIMIT   = 1       # 1 quiz per day only
+AD_GEMS_REWARD     = 30      # gems earned from daily ad in store
+AD_GEMS_LIMIT      = 1       # once per day
 
 # ─── GEM PACKAGES ─────────────────────────────────────────────────────
 GEM_PACKAGES = [
@@ -28,6 +30,67 @@ GEM_PACKAGES = [
     {"id":"boost",    "gems":150, "price":"Rp 39.000",  "usd":"$2.99",  "label":"Boost",    "popular":True},
     {"id":"power",    "gems":350, "price":"Rp 79.000",  "usd":"$6.99",  "label":"Power",    "popular":False},
     {"id":"champion", "gems":800, "price":"Rp 159.000", "usd":"$14.99", "label":"Champion", "popular":False},
+]
+
+# ─── TRAINING PROGRAMS ────────────────────────────────────────────────
+TRAINING_PROGRAMS = [
+    {
+        "id":"jump_vertical","title":"Jump & Vertical","emoji":"🦘","cost":350,
+        "color":"#c8f55a","tagline":"Add inches to your vertical leap",
+        "description":"4-week progressive plyometric program targeting explosive power, calf strength, and fast-twitch muscle activation. No equipment needed.",
+        "weeks":4,"level":"Intermediate",
+        "workouts":[
+            {"week":1,"focus":"Foundation","exercises":["Box Jump Simulation x10","Calf Raises x25","Squat Jumps x10","Wall Sit 45s","Ankle Hops x30"]},
+            {"week":2,"focus":"Power Base","exercises":["Depth Drop Simulation x8","Single-leg Calf Raises x20","Jump Squats x12","Broad Jumps x8","Tuck Jumps x8"]},
+            {"week":3,"focus":"Explosive Strength","exercises":["Bounding Lunges x10","Explosive Push-ups x10","Reactive Jump Squats x12","Sprint in Place 20s","Plyometric Lunges x10"]},
+            {"week":4,"focus":"Max Effort","exercises":["Max Height Jump x5","Single-leg Squat Simulation x8","Fast Feet Drill 15s","Squat Hold + Explode x10","Calf Complex x30"]},
+        ],
+    },
+    {
+        "id":"handstand","title":"Handstand Progression","emoji":"🤸","cost":450,
+        "color":"#5ab4ff","tagline":"Build your freestanding handstand",
+        "description":"4-week systematic progression from wall handstand to freestanding balance. Builds shoulder strength, wrist stability, and body awareness.",
+        "weeks":4,"level":"Advanced",
+        "workouts":[
+            {"week":1,"focus":"Wrist & Shoulder Prep","exercises":["Wrist Circles x20","Pike Push-ups x10","Wall Handstand Hold 20s","Shoulder Taps x15","Hollow Body Hold 30s"]},
+            {"week":2,"focus":"Wall Work","exercises":["Wall Handstand Hold 30s","Chest-to-Wall Handstand 20s","Pike Shoulder Press x8","Hollow Body 30s","Handstand Shrugs x10"]},
+            {"week":3,"focus":"Balance Training","exercises":["Wall Kick-up Practice x10","One-arm Wall Touch x8","Handstand Wall Walk x5","Pike Balance Hold 15s","Planche Lean 10s"]},
+            {"week":4,"focus":"Freestanding Attempts","exercises":["Kick-up to Freestand x10","Tuck Handstand 5s","Pike to Handstand x8","Handstand Holds","Handstand Push-up Negatives x5"]},
+        ],
+    },
+    {
+        "id":"explosive_hiit","title":"Explosive HIIT","emoji":"⚡","cost":300,
+        "color":"#f5a623","tagline":"Maximum calorie burn, zero equipment",
+        "description":"3-week high-intensity interval training combining strength and cardio. 20-minute sessions designed to spike your heart rate and build lean muscle.",
+        "weeks":3,"level":"Intermediate",
+        "workouts":[
+            {"week":1,"focus":"Base Conditioning","exercises":["Burpees x10","Mountain Climbers 30s","Jump Squats x12","High Knees 20s","Push-up to T-rotation x8"]},
+            {"week":2,"focus":"Intensity Build","exercises":["Burpee Broad Jumps x8","Spiderman Push-ups x10","Jump Lunge x10","Bear Crawl 10m","Plank to Down-dog x10"]},
+            {"week":3,"focus":"Peak Output","exercises":["Tuck Jump Burpees x8","Explosive Push-ups x12","Lateral Bounds x10","Plyometric Lunge x12","Hollow Rock 20s"]},
+        ],
+    },
+    {
+        "id":"mobility","title":"Mobility & Flexibility","emoji":"🧘","cost":250,
+        "color":"#5dd87a","tagline":"Move better, recover faster",
+        "description":"3-week daily mobility routine targeting hips, thoracic spine, shoulders, and hamstrings. Reduces injury risk and improves performance.",
+        "weeks":3,"level":"Beginner",
+        "workouts":[
+            {"week":1,"focus":"Hip Opening","exercises":["Hip 90-90 Stretch 60s","Pigeon Pose 45s each","Deep Squat Hold 30s","Hip Flexor Lunge 45s","Supine Twist 30s each"]},
+            {"week":2,"focus":"Thoracic Mobility","exercises":["Thread the Needle x10","Cat-Cow x15","Seated T-spine Rotation x10","Chest Opener 45s","Puppy Pose 45s"]},
+            {"week":3,"focus":"Hamstrings & Posterior","exercises":["Standing Forward Fold 60s","Seated Hamstring Stretch 60s","Single-leg RDL Hold 30s","Inchworm x8","World's Greatest Stretch x5"]},
+        ],
+    },
+    {
+        "id":"pistol_squat","title":"Pistol Squat Mastery","emoji":"🎯","cost":400,
+        "color":"#ff4455","tagline":"Master the ultimate leg challenge",
+        "description":"3-week progressive program building the strength, balance, and flexibility needed for a full pistol squat.",
+        "weeks":3,"level":"Advanced",
+        "workouts":[
+            {"week":1,"focus":"Single-leg Foundation","exercises":["Single-leg Balance 30s","Assisted Pistol x8","Bulgarian Split Squat x10","Single-leg Glute Bridge x15","Ankle Mobility x20"]},
+            {"week":2,"focus":"Depth & Control","exercises":["Box Pistol Squat x8","Single-leg Eccentric Squat 5s x6","Shrimp Squat x8","Step-up Balance x10","Cossack Squat x10"]},
+            {"week":3,"focus":"Full Range","exercises":["Assisted Pistol Full ROM x8","Dragon Squat x5","Slow Pistol Negative x6","Single-leg Jump x8","Pistol Hold 5s x5"]},
+        ],
+    },
 ]
 
 # ─── INTENSITY ────────────────────────────────────────────────────────
@@ -354,8 +417,8 @@ def new_user(uid, email, name, pw, metrics=None):
     return {
         "id":uid,"email":email,"name":name,"pw":hash_pw(pw),
         "setup":False,"days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
-        "streak":0,"best_streak":0,"streak_at_risk":False,
-        "gems":0,"shields":0,
+        "streak":0,"best_streak":0,"streak_at_risk":False,"streak_broken":False,
+        "gems":0,"shields":0,"purchased_programs":[],
         "total_sessions":0,"history":[],
         "week_done":{},"last_week":None,"week_reward_claimed":None,
         "quiz_done_date":None,        # date of last completed quiz
@@ -473,6 +536,11 @@ def state():
         "shield_max":SHIELD_MAX,"bonus_cost":BONUS_COST,
         "revive_cost":REVIVE_COST,"gem_packages":GEM_PACKAGES,
         "quiz_daily_limit":QUIZ_DAILY_LIMIT,"quiz_max_lives":QUIZ_LIVES,
+        "training_programs":TRAINING_PROGRAMS,
+        "ad_gems_reward":AD_GEMS_REWARD,
+        "ad_gems_done": u.get("ad_gems_date") == td,
+        "program_access": u.get("program_access", {}),
+        "active_program": u.get("active_program"),
     })
     return jsonify(safe)
 
@@ -562,22 +630,68 @@ def today_workout():
     uid, u = cur_user()
     if not u:
         return jsonify({"error":"Not logged in"}), 401
-    dow  = datetime.date.today().weekday()
-    plan = u.get("plan",[])
-    if not plan:
-        return jsonify({"error":"No plan"}), 400
-    group    = plan[dow % len(plan)]
-    intens   = u.get("intensity","intermediate")
-    exs      = apply_intensity(WORKOUTS.get(group,[]), intens)
-    td         = today_str()
+    dow    = datetime.date.today().weekday()
+    intens = u.get("intensity","intermediate")
+    td     = today_str()
     done_today = u.get("last_workout_date") == td
     reward     = GEMS_PER_WORKOUT + INTENSITY_CONFIG[intens]["gems_bonus"]
     bonus_done = u.get("bonus_date") == td
+
+    # Build program_extras list — one entry per active program with valid access
+    def _parse_ex(raw, prog, week, week_data):
+        mx = re.search(r'x(\d+)', raw)
+        reps = mx.group(1) if mx else "10-15"
+        ts = re.search(r'(\d+)s', raw)
+        if ts and not mx: reps = ts.group(1) + "s"
+        name = re.sub(r'\s*x\d+|\s*\d+s.*$', '', raw).strip()
+        return {"name":name,"sets":3,"reps":reps,"rest":60,"emoji":"🏋️",
+                "color":prog["color"],
+                "desc":f"Part of {prog['title']} — Week {week}: {week_data['focus']}.",
+                "cues":["Focus on form","Controlled movement","Full range of motion","Breathe steadily"]}
+
+    # Support both old single-object and new list format
+    raw_ap = u.get("active_program")
+    if isinstance(raw_ap, dict):
+        active_list = [raw_ap]   # migrate old format on the fly
+    elif isinstance(raw_ap, list):
+        active_list = raw_ap
+    else:
+        active_list = []
+
+    access = u.get("program_access", {})
+    program_extras = []
+    for ap in active_list:
+        prog_id = ap.get("id")
+        week    = ap.get("week", 1)
+        prog = next((p for p in TRAINING_PROGRAMS if p["id"] == prog_id), None)
+        if prog and access.get(prog_id, "") >= td:
+            week_data = next((w for w in prog.get("workouts",[]) if w["week"] == week), None)
+            if week_data:
+                program_extras.append({
+                    "exercises": apply_intensity([_parse_ex(e, prog, week, week_data) for e in week_data.get("exercises",[])], intens),
+                    "program_id": prog_id,
+                    "program_title": prog["title"],
+                    "program_week": week,
+                    "program_focus": week_data["focus"],
+                    "program_emoji": prog["emoji"],
+                    "program_color": prog["color"],
+                })
+    program_extra = program_extras[0] if len(program_extras) == 1 else None  # keep compat key
+
+    # Always return the regular plan workout + optional program_extra
+    plan = u.get("plan",[])
+    if not plan:
+        return jsonify({"error":"No plan"}), 400
+    group = plan[dow % len(plan)]
+    exs   = apply_intensity(WORKOUTS.get(group,[]), intens)
     return jsonify({
         "group":group,"exercises":exs,"done_today":done_today,"dow":dow,
         "intensity":intens,"days_done":len(u.get("week_done",{})),
         "days_per_week":u.get("days_per_week",3),"gems_reward":reward,
         "bonus_cost":BONUS_COST,"bonus_done":bonus_done,
+        "is_program":False,
+        "program_extra": program_extra,
+        "program_extras": program_extras,
     })
 
 @app.route("/api/workout/bonus_exercises")
@@ -613,10 +727,16 @@ def complete():
         wl = u.get("weight_log",[])
         ex = next((x for x in wl if x["date"]==td),None)
         if ex:
-            ex["kcal"]      = round(ex.get("kcal",0) + kcal)
-            ex["kg_change"] = round(ex.get("kg_change",0) + kg_ch, 4)
+            ex["kcal"]         = round(ex.get("kcal",0) + kcal)
+            ex["kg_change"]    = round(ex.get("kg_change",0) + kg_ch, 4)
+            ex["predicted_kg"] = round(float(ex["weight_kg"]) + ex["kg_change"], 3)
         else:
-            wl.append({"date":td,"weight_kg":m["weight_kg"],"kcal":kcal,"kg_change":round(kg_ch,4)})
+            # Use previous day predicted_kg as today's base for running trend
+            prev = wl[-1] if wl else None
+            base = float(prev.get("predicted_kg") or prev.get("weight_kg") or m["weight_kg"]) if prev else float(m["weight_kg"])
+            predicted = round(base + kg_ch, 3)
+            wl.append({"date":td,"weight_kg":round(base,3),"kcal":kcal,
+                        "kg_change":round(kg_ch,4),"predicted_kg":predicted})
         u["weight_log"] = wl
 
     gems_earned = 0
@@ -915,6 +1035,153 @@ def purchase():
     save_users(users)
     return jsonify({"ok":True,"gems":u["gems"],"gems_added":pkg["gems"],"package":pkg["label"]})
 
+PROGRAM_ACCESS_DAYS = 7   # 1-week access per purchase
+
+@app.route("/api/programs/purchase", methods=["POST"])
+def purchase_program():
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    prog_id = (request.json or {}).get("program_id","")
+    prog = next((p for p in TRAINING_PROGRAMS if p["id"]==prog_id), None)
+    if not prog:
+        return jsonify({"error":"Program not found"}), 404
+    # Check if already active (not yet expired)
+    now = datetime.date.today().isoformat()
+    access = u.get("program_access", {})
+    if access.get(prog_id, "") >= now:
+        return jsonify({"error":"Program still active — wait until it expires to re-purchase"}), 400
+    if u.get("gems",0) < prog["cost"]:
+        return jsonify({"error":f"Need {prog['cost']} gems. You have {u.get('gems',0)}"}), 400
+    u["gems"] -= prog["cost"]
+    expiry = (datetime.date.today() + datetime.timedelta(days=PROGRAM_ACCESS_DAYS - 1)).isoformat()
+    access[prog_id] = expiry
+    u["program_access"] = access
+    users = load_users()
+    users[uid] = u
+    save_users(users)
+    days_remaining = PROGRAM_ACCESS_DAYS
+    return jsonify({"ok":True,"gems":u["gems"],"program_id":prog_id,
+                    "expiry":expiry,"days_remaining":days_remaining})
+
+@app.route("/api/programs/activate", methods=["POST"])
+def activate_program():
+    """Set or clear the user's active program for the Today tab."""
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    b = request.json or {}
+    prog_id = b.get("program_id")
+    week    = b.get("week")
+    if prog_id is None:
+        # Clear all
+        u["active_program"] = []
+        users = load_users(); users[uid] = u; save_users(users)
+        return jsonify({"ok":True,"active_program":[]})
+    # Deactivate a specific program by id (prog_id passed but week is None or missing)
+    if week is None:
+        raw_ap = u.get("active_program", [])
+        if isinstance(raw_ap, list):
+            u["active_program"] = [x for x in raw_ap if x.get("id") != prog_id]
+        else:
+            u["active_program"] = []
+        users = load_users(); users[uid] = u; save_users(users)
+        return jsonify({"ok":True,"active_program":u["active_program"]})
+    # Validate access
+    now    = datetime.date.today().isoformat()
+    access = u.get("program_access", {})
+    if access.get(prog_id, "") < now:
+        return jsonify({"error":"No active access to this program"}), 403
+    prog = next((p for p in TRAINING_PROGRAMS if p["id"] == prog_id), None)
+    if not prog:
+        return jsonify({"error":"Program not found"}), 404
+    valid_weeks = [w["week"] for w in prog.get("workouts",[])]
+    if week not in valid_weeks:
+        return jsonify({"error":"Invalid week"}), 400
+    # Migrate old single-object format to list
+    raw_ap = u.get("active_program")
+    if isinstance(raw_ap, dict):
+        u["active_program"] = [raw_ap]
+    elif not isinstance(raw_ap, list):
+        u["active_program"] = []
+    # Update or add entry for this program
+    ap_list = u["active_program"]
+    existing = next((x for x in ap_list if x["id"] == prog_id), None)
+    if existing:
+        existing["week"] = week
+    else:
+        ap_list.append({"id": prog_id, "week": week})
+    users = load_users(); users[uid] = u; save_users(users)
+    return jsonify({"ok":True,"active_program":u["active_program"]})
+
+@app.route("/api/programs/workout")
+def program_workout():
+    """Return a runnable workout for a specific program week."""
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    prog_id = request.args.get("program_id","")
+    week    = int(request.args.get("week", 1))
+    # Verify active access
+    now    = datetime.date.today().isoformat()
+    access = u.get("program_access", {})
+    if access.get(prog_id, "") < now:
+        return jsonify({"error":"No active access to this program"}), 403
+    prog = next((p for p in TRAINING_PROGRAMS if p["id"] == prog_id), None)
+    if not prog:
+        return jsonify({"error":"Program not found"}), 404
+    week_data = next((w for w in prog.get("workouts",[]) if w["week"] == week), None)
+    if not week_data:
+        return jsonify({"error":"Week not found"}), 404
+    intens = u.get("intensity","intermediate")
+    # Convert plain-string exercises into proper workout objects
+    def parse_ex(raw):
+        """Parse 'Exercise Name xN' or 'Exercise Name Ns' into a workout dict."""
+        # Extract reps/time from end  e.g. "x10", "x8", "30s", "45s each"
+        m = re.search(r'x(\d+)', raw)
+        reps = m.group(1) if m else "10-15"
+        ts = re.search(r'(\d+)s', raw)
+        if ts and not m:
+            reps = ts.group(1) + "s"
+        name = re.sub(r'\s*x\d+|\s*\d+s.*$', '', raw).strip()
+        return {
+            "name": name,
+            "sets": 3,
+            "reps": reps,
+            "rest": 60,
+            "emoji": "🏋️",
+            "color": prog["color"],
+            "desc": f"Part of {prog['title']} — Week {week}: {week_data['focus']}.",
+            "cues": ["Focus on form", "Controlled movement", "Full range of motion", "Breathe steadily"],
+        }
+    raw_exs = [parse_ex(e) for e in week_data.get("exercises",[])]
+    exs = apply_intensity(raw_exs, intens)
+    return jsonify({
+        "group": prog_id,
+        "program_title": prog["title"],
+        "week": week,
+        "focus": week_data["focus"],
+        "exercises": exs,
+        "intensity": intens,
+        "color": prog["color"],
+        "emoji": prog["emoji"],
+    })
+
+@app.route("/api/store/watch_ad", methods=["POST"])
+def store_watch_ad():
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    td = today_str()
+    if u.get("ad_gems_date") == td:
+        return jsonify({"error":"already_done"}), 400
+    u["ad_gems_date"] = td
+    u["gems"] = u.get("gems",0) + AD_GEMS_REWARD
+    users = load_users()
+    users[uid] = u
+    save_users(users)
+    return jsonify({"ok":True,"gems":u["gems"],"gems_earned":AD_GEMS_REWARD})
+
 @app.route("/api/reset", methods=["POST"])
 def reset():
     uid, u = cur_user()
@@ -925,7 +1192,7 @@ def reset():
         "setup":False,"days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
         "streak":0,"best_streak":0,"streak_at_risk":False,"gems":0,"shields":0,
         "total_sessions":0,"history":[],"week_done":{},"last_week":None,
-        "quiz_done_date":None,"quiz_lives":QUIZ_LIVES,"quiz_lives_date":None,"bonus_date":None,"week_reward_claimed":None,
+        "quiz_done_date":None,"quiz_lives":QUIZ_LIVES,"quiz_lives_date":None,"bonus_date":None,"week_reward_claimed":None,"ad_gems_date":None,"purchased_programs":[],"program_access":{},"active_program":None,
         "weight_log":[],"metrics":{"weight_kg":None,"height_cm":None,"age":None,"gender":"male"},
     })
     save_users(users)

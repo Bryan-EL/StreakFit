@@ -1469,6 +1469,106 @@
       margin: 16px 0
     }
 
+    /* ── STORE TABS ── */
+    .store-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--bd);
+      margin-bottom: 16px;
+      gap: 0
+    }
+
+    .stab {
+      flex: 1;
+      padding: 10px 4px;
+      text-align: center;
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .2s;
+      margin-bottom: -1px
+    }
+
+    .stab.on {
+      color: var(--accent);
+      border-bottom-color: var(--accent)
+    }
+
+    /* ── PROGRAM CARDS ── */
+    .prog-card {
+      background: var(--s1);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 16px;
+      margin-bottom: 10px;
+      position: relative;
+      overflow: hidden
+    }
+
+    .prog-card.owned {
+      border-color: var(--accent)
+    }
+
+    .prog-card-hdr {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px
+    }
+
+    .prog-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: var(--r2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0
+    }
+
+    .prog-badge {
+      display: inline-block;
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 3px;
+      margin-bottom: 4px;
+      font-weight: 500
+    }
+
+    .prog-owned-tag {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(200, 245, 90, .12);
+      border: 1px solid rgba(200, 245, 90, .3);
+      color: var(--accent);
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 3px
+    }
+
+    /* ── FREE GEMS ── */
+    .ad-gem-card {
+      background: var(--s1);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 14px
+    }
+
+    .ad-gem-done {
+      opacity: .45;
+      pointer-events: none
+    }
+
     /* ── SCROLLBAR (desktop) ── */
     @media (pointer:fine) {
       ::-webkit-scrollbar {
@@ -1677,8 +1777,24 @@
         </div>
       </div>
       <div class="week-strip" id="week-strip"></div>
+      <!-- Program active banner -->
+      <div id="program-active-banner"
+        style="display:none;background:rgba(200,245,90,.07);border:1px solid rgba(200,245,90,.22);border-radius:8px;padding:10px 13px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div
+              style="font-size:9px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px">
+              Active Program</div>
+            <div style="font-size:13px;font-weight:500" id="prog-banner-title"></div>
+            <div style="font-size:10px;color:var(--mid)" id="prog-banner-focus"></div>
+          </div>
+          <button onclick="deactivateProgram()"
+            style="background:none;border:none;color:var(--dim);font-size:11px;cursor:pointer;padding:4px 6px;font-family:'DM Mono',monospace">✕
+            Remove all</button>
+        </div>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-        <span class="lbl" style="margin-bottom:0">Today's exercises</span>
+        <span class="lbl" style="margin-bottom:0" id="home-ex-label">Today's exercises</span>
         <div style="display:flex;gap:4px"><span id="grp-tag" class="pill g"></span><span id="int-tag"
             class="pill"></span></div>
       </div>
@@ -1688,9 +1804,12 @@
           completing today</div>
         <button class="btn btn-p" onclick="startWorkout(false)">Start Workout →</button>
       </div>
+      <!-- Program extra section (shown when a program week is active) -->
+      <!-- Program extras: dynamically rendered, one per active program -->
+      <div id="program-extras-container"></div>
       <!-- Bonus section (shown when today is done) -->
       <div id="bonus-section" style="display:none;padding-top:14px;margin-top:auto">
-        <div class="lbl" style="margin-bottom:6px">Want more?</div>
+        <div class="lbl" style="margin-bottom:6px">Want an extra session?</div>
         <button class="btn btn-gem" onclick="openBonusModal()">Unlock Bonus Workout 💎</button>
       </div>
     </div>
@@ -1784,215 +1903,266 @@
           <div class="lives-row" id="lives-row" style="justify-content:flex-end"></div>
         </div>
       </div>
-      <p class="hint" style="margin-bottom:14px">Work through today's question set — 3 lives shared across all
-        questions. Earn gems for every correct answer!</p>
+      <p class="hint" style="margin-bottom:14px">Work through today's 10-question set — 2 lives shared. Earn 5 💎 per
+        correct answer, +20 💎 bonus for finishing all 10!</p>
       <div id="quiz-area"></div>
     </div>
 
     <!-- ══ PROGRESS ════════════════════════════════════════════════ -->
-    <div class="screen" id="s-progress">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-        <div>
-          <div class="lbl">Overview</div>
-          <h2 class="d">Progress</h2>
-        </div>
-        <div style="font-size:12px;color:var(--gem);font-weight:500;margin-top:6px">💎 <span id="prog-gems">0</span>
-        </div>
-      </div>
-      <div class="stat-grid">
-        <div class="stat-card">
-          <div class="lbl">Current streak</div>
-          <div class="stat-card-val" id="p-streak">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="lbl">Best streak</div>
-          <div class="stat-card-val" id="p-best">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="lbl">Total sessions</div>
-          <div class="stat-card-val" id="p-sessions">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="lbl">This week</div>
-          <div class="stat-card-val" id="p-week">0</div>
-        </div>
-      </div>
-      <div class="graph-wrap">
-        <div class="lbl" style="margin-bottom:8px">Weight trend (kg)</div>
-        <div id="graph-empty" class="graph-empty">Enter your weight in Profile to track progress here</div>
-        <svg id="wt-svg" height="130" style="display:none"></svg>
-      </div>
-      <div id="metrics-summary" style="display:none" class="metrics-grid">
-        <div class="metric-card">
-          <div class="lbl">Weight</div>
-          <div class="metric-val" id="pm-wt">—</div>
-        </div>
-        <div class="metric-card">
-          <div class="lbl">Height</div>
-          <div class="metric-val" id="pm-ht">—</div>
-        </div>
-        <div class="metric-card">
-          <div class="lbl">BMI</div>
-          <div class="metric-val" id="pm-bmi">—</div>
-        </div>
-        <div class="metric-card">
-          <div class="lbl">Total kcal burned</div>
-          <div class="metric-val" id="pm-kcal">—</div>
-        </div>
-      </div>
-      <div class="lbl" style="margin-bottom:8px">Recent sessions</div>
-      <div id="hist-list">
-        <div class="hint" style="padding:10px 0">No sessions yet.</div>
-      </div>
-    </div>
-
     <!-- ══ STORE ═══════════════════════════════════════════════════ -->
     <div class="screen" id="s-store">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
-          <div class="lbl">Gem</div>
+          <div class="lbl">StreakFit</div>
           <h2 class="d">Store</h2>
         </div>
         <div style="font-size:12px;color:var(--gem);font-weight:500;margin-top:6px">💎 <span id="st-gems">0</span></div>
       </div>
-      <div class="store-note">Gems buy Streak Shields (🛡️ 150 each, max 2) and unlock bonus workouts (40 gems). Earn
-        them by training and acing daily quizzes.</div>
-      <div class="lbl" style="margin-bottom:8px">Buy gems</div>
-      <div class="pkg-grid" id="pkg-grid"></div>
-      <div class="err" id="store-err"></div>
-      <div class="ok" id="store-ok"></div>
-      <div class="divider"></div>
-      <div class="lbl" style="margin-bottom:8px">🛡️ Streak Shield — 150 gems each</div>
-      <div class="shield-wrap">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div>
-            <div style="font-size:12px;font-weight:500;margin-bottom:2px">Streak Shield</div>
-            <div style="font-size:10px;color:var(--mid)">Protects your streak if you miss your weekly goal</div>
+      <!-- Tabs -->
+      <div class="store-tabs">
+        <div class="stab on" id="stab-gems" onclick="storeTab('gems')">💎 Gems</div>
+        <div class="stab" id="stab-free" onclick="storeTab('free')">📺 Free</div>
+      </div>
+
+      <!-- ── Tab: Gems ── -->
+      <div id="store-tab-gems">
+        <div class="store-note">Gems buy Streak Shields (🛡️ 150 each), unlock bonus workouts (40 💎), and unlock
+          premium Programs. Earn gems by training, quizzes, and daily ads.</div>
+        <div class="lbl" style="margin-bottom:8px">Buy gems</div>
+        <div class="pkg-grid" id="pkg-grid"></div>
+        <div class="err" id="store-err"></div>
+        <div class="ok" id="store-ok"></div>
+        <div class="divider"></div>
+        <div class="lbl" style="margin-bottom:8px">🛡️ Streak Shield — 150 gems each</div>
+        <div class="shield-wrap">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div>
+              <div style="font-size:12px;font-weight:500;margin-bottom:2px">Streak Shield</div>
+              <div style="font-size:10px;color:var(--mid)">Protects your streak if you miss a day</div>
+            </div>
+            <div style="font-size:10px;color:var(--gem)"><span id="st-gems-disp">0</span> gems</div>
           </div>
-          <div style="font-size:10px;color:var(--gem)"><span id="st-gems-disp">0</span> gems</div>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div class="lbl" style="margin-bottom:4px">Owned (max 2)</div>
-            <div class="shield-dots" id="store-shield-dots"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="lbl" style="margin-bottom:4px">Owned (max 2)</div>
+              <div class="shield-dots" id="store-shield-dots"></div>
+            </div>
+            <button class="btn btn-gem" onclick="buyShield()" style="width:auto;padding:9px 14px;font-size:10px">Buy
+              🛡️</button>
           </div>
-          <button class="btn btn-gem" onclick="buyShield()" style="width:auto;padding:9px 14px;font-size:10px">Buy
-            🛡️</button>
+          <div class="err" id="shield-err"></div>
         </div>
-        <div class="err" id="shield-err"></div>
+      </div>
+
+
+      <!-- ── Tab: Free Gems ── -->
+      <div id="store-tab-free" style="display:none">
+        <div class="store-note">Watch one short ad per day to earn 30 free gems. Resets at midnight.</div>
+        <!-- Daily ad card -->
+        <div class="ad-gem-card" id="ad-gem-card">
+          <div style="font-size:40px;margin-bottom:8px">📺</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;margin-bottom:4px">Daily Ad Reward</div>
+          <div style="font-size:28px;color:var(--gem);font-family:'Bebas Neue',sans-serif;margin-bottom:6px">💎 <span
+              id="ad-gems-amount">30</span></div>
+          <p class="hint" style="margin-bottom:16px">Watch a short ad and earn gems instantly. Once per day.</p>
+          <button class="btn btn-warn" id="btn-watch-ad-store" onclick="watchStoreAd()" style="width:100%">📺 Watch Ad
+            &amp; Earn Gems</button>
+          <div id="ad-gem-done-msg" style="display:none;font-size:11px;color:var(--safe);margin-top:10px">✓ Claimed
+            today! Come back tomorrow.</div>
+        </div>
+        <div class="ok" id="ad-store-ok"></div>
       </div>
     </div>
 
-    <!-- ══ PROFILE ══════════════════════════════════════════════════ -->
-    <div class="screen" id="s-profile">
-      <div style="margin-bottom:16px">
-        <div class="lbl">Account</div>
-        <h2 class="d">Profile</h2>
-      </div>
-      <div class="prof-hdr">
-        <div class="avatar" id="prof-avatar">?</div>
+    <!-- ══ PROGRAMS ═══════════════════════════════════════════════ -->
+    <div class="screen" id="s-programs">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
-          <div style="font-size:14px;font-weight:500" id="prof-name">—</div>
-          <div style="font-size:10px;color:var(--dim);margin-top:2px" id="prof-email">—</div>
-          <div style="display:flex;gap:10px;margin-top:5px">
-            <span style="font-size:11px;color:var(--gem)">💎 <span id="prof-gems">0</span></span>
-            <span style="font-size:11px;color:var(--mid)">🛡️ <span id="prof-shields">0</span></span>
-          </div>
+          <div class="lbl">Premium</div>
+          <h2 class="d">Programs</h2>
+        </div>
+        <div style="font-size:12px;color:var(--gem);font-weight:500;margin-top:6px">💎 <span id="prg-gems">0</span>
         </div>
       </div>
-      <!-- Body metrics -->
-      <div class="pref-sec">
-        <div class="pref-sec-title">Body Metrics</div>
-        <div class="two-col">
-          <div class="field"><label>Weight (kg)</label><input type="number" id="m-wt" placeholder="70" step="0.1"></div>
-          <div class="field"><label>Height (cm)</label><input type="number" id="m-ht" placeholder="175"></div>
-          <div class="field"><label>Age</label><input type="number" id="m-age" placeholder="25"></div>
-          <div class="field"><label>Gender</label><select id="m-gender">
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select></div>
-        </div>
-        <button class="btn btn-safe" onclick="saveMetrics()">Save Metrics →</button>
-        <div class="ok" id="metrics-ok"></div>
-      </div>
-      <!-- Workout prefs -->
-      <div class="pref-sec">
-        <div class="pref-sec-title">Workout Preferences</div>
-        <div class="pref-row"><span>Days per week</span><span class="pref-val" id="pref-days">—</span></div>
-        <div class="pref-row"><span>Intensity</span><span class="pref-val" id="pref-int">—</span></div>
-        <div class="pref-row"><span>Muscle groups</span><span class="pref-val" id="pref-muscles">—</span></div>
-      </div>
-      <div class="pref-sec">
-        <div class="pref-sec-title">Change Days</div>
-        <div class="day-grid" id="prof-day-grid" style="margin-top:0">
-          <button class="dbtn btn" onclick="pSelDays(1)">1</button><button class="dbtn btn"
-            onclick="pSelDays(2)">2</button>
-          <button class="dbtn btn" onclick="pSelDays(3)">3</button><button class="dbtn btn"
-            onclick="pSelDays(4)">4</button>
-          <button class="dbtn btn" onclick="pSelDays(5)">5</button><button class="dbtn btn"
-            onclick="pSelDays(6)">6</button>
-          <button class="dbtn btn" onclick="pSelDays(7)">7</button>
-        </div>
-      </div>
-      <div class="pref-sec">
-        <div class="pref-sec-title">Change Intensity</div>
-        <div class="sel-grid" style="margin-top:0">
-          <div class="sc" id="pic-beginner" onclick="pSelInt('beginner')">
-            <div class="ibadge beginner">Beginner</div>
-            <div class="sc-name">Starting Out</div>
-          </div>
-          <div class="sc" id="pic-intermediate" onclick="pSelInt('intermediate')">
-            <div class="ibadge intermediate">Intermediate</div>
-            <div class="sc-name">Solid Base</div>
-          </div>
-          <div class="sc" id="pic-advanced" onclick="pSelInt('advanced')">
-            <div class="ibadge advanced">Advanced</div>
-            <div class="sc-name">Pushing Hard</div>
-          </div>
-          <div class="sc" id="pic-athlete" onclick="pSelInt('athlete')">
-            <div class="ibadge athlete">Athlete</div>
-            <div class="sc-name">Elite</div>
-          </div>
-        </div>
-      </div>
-      <div class="pref-sec">
-        <div class="pref-sec-title">Change Muscle Groups</div>
-        <div class="sel-grid" style="margin-top:0">
-          <div class="sc" id="pmc-chest" onclick="pTogMuscle('chest')">
-            <div class="sc-icon">💪</div>
-            <div class="sc-name">Chest</div>
-          </div>
-          <div class="sc" id="pmc-back" onclick="pTogMuscle('back')">
-            <div class="sc-icon">🦸</div>
-            <div class="sc-name">Back</div>
-          </div>
-          <div class="sc" id="pmc-legs" onclick="pTogMuscle('legs')">
-            <div class="sc-icon">🦵</div>
-            <div class="sc-name">Legs</div>
-          </div>
-          <div class="sc" id="pmc-core" onclick="pTogMuscle('core')">
-            <div class="sc-icon">🎯</div>
-            <div class="sc-name">Core</div>
-          </div>
-          <div class="sc" id="pmc-shoulders" onclick="pTogMuscle('shoulders')">
-            <div class="sc-icon">🔺</div>
-            <div class="sc-name">Shoulders</div>
-          </div>
-          <div class="sc" id="pmc-full" onclick="pTogMuscle('full')">
-            <div class="sc-icon">⚡</div>
-            <div class="sc-name">Full Body</div>
-          </div>
-        </div>
-        <div class="err" id="pref-err"></div>
-      </div>
-      <button class="btn btn-p" onclick="saveProfile()" style="margin-bottom:8px">Save Changes →</button>
-      <div class="ok" id="pref-ok"></div>
-      <div class="divider"></div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <button class="btn btn-d" onclick="confirmReset()">Reset All Data</button>
-        <button class="btn btn-g" onclick="doLogout()">Log Out</button>
-      </div>
+      <p class="hint" style="margin-bottom:16px">Structured multi-week training plans. Each purchase grants <strong
+          style="color:var(--accent)">7 days of full access</strong>. Pick a week, activate it, and it appears in your
+        Today tab to train through.</p>
+      <div id="programs-list"></div>
     </div>
+
+    <!-- ══ PROFILE (merged with Progress) ═══════════════════════════ -->
+    <div class="screen" id="s-profile">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div>
+          <div class="lbl">StreakFit</div>
+          <h2 class="d">Profile</h2>
+        </div>
+        <div style="font-size:12px;color:var(--gem);font-weight:500;margin-top:6px">💎 <span id="prog-gems">0</span>
+        </div>
+      </div>
+      <!-- Profile tabs -->
+      <div class="store-tabs" style="margin-bottom:16px">
+        <div class="stab on" id="ptab-progress" onclick="profileTab('progress')">◈ Progress</div>
+        <div class="stab" id="ptab-settings" onclick="profileTab('settings')">⚙ Settings</div>
+      </div>
+
+      <!-- ── Progress tab ── -->
+      <div id="profile-tab-progress">
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="lbl">Current streak</div>
+            <div class="stat-card-val" id="p-streak">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Best streak</div>
+            <div class="stat-card-val" id="p-best">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Total sessions</div>
+            <div class="stat-card-val" id="p-sessions">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">This week</div>
+            <div class="stat-card-val" id="p-week">0</div>
+          </div>
+        </div>
+        <div class="graph-wrap">
+          <div class="lbl" style="margin-bottom:8px">Weight trend (kg)</div>
+          <div id="graph-empty" class="graph-empty">Enter your weight below to track your progress here</div>
+          <svg id="wt-svg" height="130" style="display:none"></svg>
+        </div>
+        <div id="metrics-summary" style="display:none" class="metrics-grid">
+          <div class="metric-card">
+            <div class="lbl">Weight</div>
+            <div class="metric-val" id="pm-wt">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="lbl">Height</div>
+            <div class="metric-val" id="pm-ht">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="lbl">BMI</div>
+            <div class="metric-val" id="pm-bmi">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="lbl">Total kcal burned</div>
+            <div class="metric-val" id="pm-kcal">—</div>
+          </div>
+        </div>
+        <div class="lbl" style="margin-bottom:8px">Recent sessions</div>
+        <div id="hist-list">
+          <div class="hint" style="padding:10px 0">No sessions yet.</div>
+        </div>
+      </div>
+
+      <!-- ── Settings tab ── -->
+      <div id="profile-tab-settings" style="display:none">
+        <div class="prof-hdr">
+          <div class="avatar" id="prof-avatar">?</div>
+          <div>
+            <div style="font-size:14px;font-weight:500" id="prof-name">—</div>
+            <div style="font-size:10px;color:var(--dim);margin-top:2px" id="prof-email">—</div>
+            <div style="display:flex;gap:10px;margin-top:5px">
+              <span style="font-size:11px;color:var(--gem)">💎 <span id="prof-gems">0</span></span>
+              <span style="font-size:11px;color:var(--mid)">🛡️ <span id="prof-shields">0</span></span>
+            </div>
+          </div>
+        </div>
+        <!-- Body metrics -->
+        <div class="pref-sec">
+          <div class="pref-sec-title">Body Metrics</div>
+          <div class="two-col">
+            <div class="field"><label>Weight (kg)</label><input type="number" id="m-wt" placeholder="70" step="0.1">
+            </div>
+            <div class="field"><label>Height (cm)</label><input type="number" id="m-ht" placeholder="175"></div>
+            <div class="field"><label>Age</label><input type="number" id="m-age" placeholder="25"></div>
+            <div class="field"><label>Gender</label><select id="m-gender">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select></div>
+          </div>
+          <button class="btn btn-safe" onclick="saveMetrics()">Save Metrics →</button>
+          <div class="ok" id="metrics-ok"></div>
+        </div>
+        <!-- Workout prefs -->
+        <div class="pref-sec">
+          <div class="pref-sec-title">Workout Preferences</div>
+          <div class="pref-row"><span>Days per week</span><span class="pref-val" id="pref-days">—</span></div>
+          <div class="pref-row"><span>Intensity</span><span class="pref-val" id="pref-int">—</span></div>
+          <div class="pref-row"><span>Muscle groups</span><span class="pref-val" id="pref-muscles">—</span></div>
+        </div>
+        <div class="pref-sec">
+          <div class="pref-sec-title">Change Days</div>
+          <div class="day-grid" id="prof-day-grid" style="margin-top:0">
+            <button class="dbtn btn" onclick="pSelDays(1)">1</button><button class="dbtn btn"
+              onclick="pSelDays(2)">2</button>
+            <button class="dbtn btn" onclick="pSelDays(3)">3</button><button class="dbtn btn"
+              onclick="pSelDays(4)">4</button>
+            <button class="dbtn btn" onclick="pSelDays(5)">5</button><button class="dbtn btn"
+              onclick="pSelDays(6)">6</button>
+            <button class="dbtn btn" onclick="pSelDays(7)">7</button>
+          </div>
+        </div>
+        <div class="pref-sec">
+          <div class="pref-sec-title">Change Intensity</div>
+          <div class="sel-grid" style="margin-top:0">
+            <div class="sc" id="pic-beginner" onclick="pSelInt('beginner')">
+              <div class="ibadge beginner">Beginner</div>
+              <div class="sc-name">Starting Out</div>
+            </div>
+            <div class="sc" id="pic-intermediate" onclick="pSelInt('intermediate')">
+              <div class="ibadge intermediate">Intermediate</div>
+              <div class="sc-name">Solid Base</div>
+            </div>
+            <div class="sc" id="pic-advanced" onclick="pSelInt('advanced')">
+              <div class="ibadge advanced">Advanced</div>
+              <div class="sc-name">Pushing Hard</div>
+            </div>
+            <div class="sc" id="pic-athlete" onclick="pSelInt('athlete')">
+              <div class="ibadge athlete">Athlete</div>
+              <div class="sc-name">Elite</div>
+            </div>
+          </div>
+        </div>
+        <div class="pref-sec">
+          <div class="pref-sec-title">Change Muscle Groups</div>
+          <div class="sel-grid" style="margin-top:0">
+            <div class="sc" id="pmc-chest" onclick="pTogMuscle('chest')">
+              <div class="sc-icon">💪</div>
+              <div class="sc-name">Chest</div>
+            </div>
+            <div class="sc" id="pmc-back" onclick="pTogMuscle('back')">
+              <div class="sc-icon">🦸</div>
+              <div class="sc-name">Back</div>
+            </div>
+            <div class="sc" id="pmc-legs" onclick="pTogMuscle('legs')">
+              <div class="sc-icon">🦵</div>
+              <div class="sc-name">Legs</div>
+            </div>
+            <div class="sc" id="pmc-core" onclick="pTogMuscle('core')">
+              <div class="sc-icon">🎯</div>
+              <div class="sc-name">Core</div>
+            </div>
+            <div class="sc" id="pmc-shoulders" onclick="pTogMuscle('shoulders')">
+              <div class="sc-icon">🔺</div>
+              <div class="sc-name">Shoulders</div>
+            </div>
+            <div class="sc" id="pmc-full" onclick="pTogMuscle('full')">
+              <div class="sc-icon">⚡</div>
+              <div class="sc-name">Full Body</div>
+            </div>
+          </div>
+          <div class="err" id="pref-err"></div>
+        </div>
+        <button class="btn btn-p" onclick="saveProfile()" style="margin-bottom:8px">Save Changes →</button>
+        <div class="ok" id="pref-ok"></div>
+        <div class="divider"></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-d" onclick="confirmReset()">Reset All Data</button>
+          <button class="btn btn-g" onclick="doLogout()">Log Out</button>
+        </div>
+      </div><!-- /profile-tab-settings -->
+    </div><!-- /s-profile -->
 
     <!-- ══ SETTINGS ════════════════════════════════════════════════ -->
     <div class="screen" id="s-settings">
@@ -2021,10 +2191,11 @@
       </div>
       <div class="pref-sec">
         <div class="pref-sec-title">About</div>
-        <div class="pref-row"><span>Version</span><span class="pref-val">v1.0.0</span></div>
+        <div class="pref-row"><span>Version</span><span class="pref-val">v1.1.0</span></div>
         <div class="pref-row"><span>Exercises</span><span class="pref-val">Floor-only, zero equipment</span></div>
         <div class="pref-row"><span>Shield max</span><span class="pref-val">2 shields</span></div>
-        <div class="pref-row"><span>Quiz</span><span class="pref-val">1 per day · 60 questions</span></div>
+        <div class="pref-row"><span>Quiz</span><span class="pref-val">10 questions/day · 2 lives · 60 question
+            bank</span></div>
       </div>
     </div>
 
@@ -2040,17 +2211,27 @@
             <button class="modal-close" onclick="closeBonusModal()">✕</button>
           </div>
           <div class="modal-title">Extra Session</div>
-          <p class="hint" style="margin-bottom:16px">Lighter, faster, different exercises — just for today. Pay with
-            gems or watch a short ad.</p>
+          <p class="hint" style="margin-bottom:16px">Lighter, faster bonus session — different exercises, just for
+            today. Spend 40 💎 or watch a short ad to unlock.</p>
           <div id="bonus-pay-section">
-            <div style="display:flex;gap:8px;margin-bottom:10px">
-              <button class="btn btn-gem" id="btn-bonus-gems" onclick="unlockBonus('gems')" style="flex:1">💎 40
-                Gems</button>
-              <button class="btn btn-warn" id="btn-bonus-ad" onclick="unlockBonus('ad')" style="flex:1">📺 Watch
-                Ad</button>
+            <div id="bonus-confirm-step"
+              style="display:none;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:14px;margin-bottom:10px">
+              <div style="font-size:12px;font-weight:500;margin-bottom:4px" id="bonus-confirm-title">Confirm</div>
+              <p class="hint" id="bonus-confirm-body" style="margin-bottom:14px"></p>
+              <button class="btn btn-p" id="btn-bonus-confirm" onclick="confirmBonusUnlock()"
+                style="width:100%;margin-bottom:8px">Confirm →</button>
+              <button class="btn btn-g" onclick="cancelBonusConfirm()" style="width:100%">Cancel</button>
             </div>
-            <button class="btn btn-g" onclick="closeBonusModal()" style="width:100%;margin-bottom:10px">Maybe
-              Later</button>
+            <div id="bonus-pay-choices">
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <button class="btn btn-gem" id="btn-bonus-gems" onclick="promptBonusConfirm('gems')" style="flex:1">💎
+                  40 Gems</button>
+                <button class="btn btn-warn" id="btn-bonus-ad" onclick="promptBonusConfirm('ad')" style="flex:1">📺
+                  Watch Ad</button>
+              </div>
+              <button class="btn btn-g" onclick="closeBonusModal()" style="width:100%;margin-bottom:10px">Maybe
+                Later</button>
+            </div>
           </div>
           <div class="err" id="bonus-err"></div>
           <div id="bonus-muscle-section" style="display:none">
@@ -2158,6 +2339,50 @@
       </div>
     </div>
 
+    <!-- ══ PROGRAM DETAIL MODAL ═════════════════════════════════════ -->
+    <div class="modal-bg" id="prog-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase">Training Program
+          </div>
+          <button class="modal-close" onclick="closeModal('prog-modal')">✕</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div class="prog-icon" id="pm-icon" style="background:#1e1e24"></div>
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:22px" id="pm-title"></div>
+            <div class="hint" id="pm-tagline"></div>
+          </div>
+        </div>
+        <p class="hint" id="pm-desc" style="margin-bottom:12px;line-height:1.7"></p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+          <div class="stat-card" style="text-align:center">
+            <div class="lbl">Weeks of content</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent)" id="pm-weeks"></div>
+          </div>
+          <div class="stat-card" style="text-align:center">
+            <div class="lbl">Level</div>
+            <div style="font-size:10px;font-weight:500;margin-top:6px" id="pm-level"></div>
+          </div>
+        </div>
+        <div class="lbl" style="margin-bottom:8px">Sample workouts</div>
+        <div id="pm-workouts" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+        <div id="pm-buy-section">
+          <button class="btn btn-p" id="pm-buy-btn" onclick="buyProgram()" style="width:100%"></button>
+          <div class="err" id="pm-err" style="margin-top:6px"></div>
+        </div>
+        <div id="pm-owned-section" style="display:none">
+          <div
+            style="background:rgba(200,245,90,.07);border:1px solid rgba(200,245,90,.2);border-radius:8px;padding:12px;margin-bottom:12px"
+            id="pm-active-info"></div>
+          <div class="lbl" style="margin-bottom:8px">Select a week to train</div>
+          <div id="pm-week-grid"></div>
+          <div class="err" id="pm-start-err" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ BOTTOM NAV ══════════════════════════════════════════════ -->
     <div id="nav">
       <div class="ni on" id="nav-home" onclick="navTo('home')">
@@ -2168,9 +2393,9 @@
         <div class="ni-icon">🧠</div>
         <div class="ni-label">Quiz</div>
       </div>
-      <div class="ni" id="nav-prog" onclick="navTo('prog')">
-        <div class="ni-icon">◈</div>
-        <div class="ni-label">Progress</div>
+      <div class="ni" id="nav-programs" onclick="navTo('programs')">
+        <div class="ni-icon">🏋️</div>
+        <div class="ni-label">Programs</div>
       </div>
       <div class="ni" id="nav-store" onclick="navTo('store')">
         <div class="ni-icon">💎</div>
@@ -2189,6 +2414,7 @@
     let S = {}, WK = [], wkGroup = '', curInt = 'intermediate', isBonusWorkout = false;
     let exIdx = 0, setIdx = 0, restIv = null, adCb = null, prevScreen = 's-home';
     let bonusMuscle = '', bonusUnlocked = false, bonusUnlockedByAd = false;
+    let isProgramWorkout = false, currentProgId = '';
     let _days = 0, _muscles = [], _intensity = 'intermediate';
     let _pDays = 3, _pMuscles = [], _pInt = 'intermediate';
     let _suDays = 3;
@@ -2227,7 +2453,7 @@
     function goTo(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       $(id).classList.add('active');
-      const mainScreens = ['s-home', 's-quiz', 's-progress', 's-store', 's-profile'];
+      const mainScreens = ['s-home', 's-quiz', 's-programs', 's-store', 's-profile'];
       $('nav').className = mainScreens.includes(id) ? 'show' : '';
       $('topbar').className = mainScreens.includes(id) ? 'show' : '';
     }
@@ -2400,12 +2626,18 @@
       // Today's workout
       const tw = await fetch('/api/workout/today', { credentials: 'include' }); const td = await tw.json();
       if (td.error) return;
-      wkGroup = td.group; WK = td.exercises || []; curInt = td.intensity || 'intermediate';
+
+      // ── Regular plan workout ──
+      WK = td.exercises || []; curInt = td.intensity || 'intermediate';
+      isBonusWorkout = false; isProgramWorkout = false; currentProgId = '';
+      wkGroup = td.group;
+      $('program-active-banner').style.display = 'none';
       $('grp-tag').textContent = wkGroup.toUpperCase();
+      $('grp-tag').style.color = ''; $('grp-tag').style.borderColor = '';
+      $('home-ex-label').textContent = "Today's exercises";
       const ic = IC[curInt] || 'var(--dim)';
       $('int-tag').textContent = curInt;
-      $('int-tag').style.color = ic;
-      $('int-tag').style.borderColor = ic + '44';
+      $('int-tag').style.color = ic; $('int-tag').style.borderColor = ic + '44';
       const done2 = td.done_today;
       $('home-lbl').textContent = done2 ? 'Completed today' : 'Today';
       $('home-title').textContent = done2 ? 'Rest up 💤' : 'Your Plan';
@@ -2417,19 +2649,46 @@
         const el = document.createElement('div');
         el.className = 'ex-row' + (done2 ? ' dimmed' : '');
         el.innerHTML = `<div><div class="ex-title">${ex.emoji} ${ex.name}</div>
-      <div class="ex-meta">${ex.sets} sets · ${ex.reps} reps · ${ex.rest}s rest</div></div>
-      <div style="color:var(--dim);font-size:14px">›</div>`;
+          <div class="ex-meta">${ex.sets} sets · ${ex.reps} reps · ${ex.rest}s rest</div></div>
+          <div style="color:var(--dim);font-size:14px">›</div>`;
         list.appendChild(el);
+      });
+
+      // ── Program extras (one section per active program) ──
+      const extras = td.program_extras || (td.program_extra ? [td.program_extra] : []);
+      const container = $('program-extras-container');
+      container.innerHTML = '';
+      window._programExtras = extras;
+      extras.forEach((pe, idx) => {
+        const sec = document.createElement('div');
+        sec.style.marginTop = '18px';
+        const exRows = (pe.exercises || []).map(ex =>
+          `<div class="ex-row"><div><div class="ex-title">${ex.emoji} ${ex.name}</div>
+            <div class="ex-meta">${ex.sets} sets · ${ex.reps} reps · ${ex.rest}s rest</div></div>
+            <div style="color:var(--dim);font-size:14px">›</div></div>`
+        ).join('');
+        sec.innerHTML = `
+          <div class="divider" style="margin-bottom:14px"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+            <span class="lbl" style="margin-bottom:0">${pe.program_emoji} ${pe.program_title} — Wk ${pe.program_week}: ${pe.program_focus}</span>
+            <button onclick="deactivateProgram('${pe.program_id}')" style="background:none;border:none;color:var(--dim);font-size:10px;cursor:pointer;padding:2px 6px;font-family:'DM Mono',monospace">✕</button>
+          </div>
+          <div class="ex-list">${exRows}</div>
+          <div style="padding-top:12px">
+            <button class="btn btn-safe" onclick="startProgramFromHome(${idx})">▶ Start Workout →</button>
+          </div>`;
+        container.appendChild(sec);
       });
     }
 
     // ─── BONUS ────────────────────────────────────────────────────
     function openBonusModal() {
-      bonusUnlocked = false; bonusMuscle = '';
+      bonusUnlocked = false; bonusMuscle = ''; pendingBonusMethod = null;
       $('bonus-err').textContent = '';
       $('bonus-pay-section').style.display = 'block';
       $('bonus-main-view').style.display = 'block';
       $('bonus-confirm-close').style.display = 'none';
+      if ($('bonus-confirm-step')) { $('bonus-confirm-step').style.display = 'none'; $('bonus-pay-choices').style.display = 'block'; }
       const bg = $('btn-bonus-gems'), ba = $('btn-bonus-ad');
       if (bg) { bg.disabled = false; bg.style.opacity = '1'; }
       if (ba) { ba.disabled = false; ba.style.opacity = '1'; }
@@ -2465,6 +2724,33 @@
       ['chest', 'back', 'legs', 'core', 'shoulders', 'full'].forEach(g => $('bmc-' + g).classList.toggle('on', g === m));
       setDis('btn-start-bonus', false);
     }
+    let pendingBonusMethod = null;
+    function promptBonusConfirm(method) {
+      pendingBonusMethod = method;
+      if (method === 'gems') {
+        $('bonus-confirm-title').textContent = 'Spend 40 Gems?';
+        $('bonus-confirm-body').textContent = 'This will deduct 40 gems from your balance. Gems are non-refundable.';
+        $('btn-bonus-confirm').textContent = 'Yes, Spend 40 Gems';
+      } else {
+        $('bonus-confirm-title').textContent = 'Watch an Ad?';
+        $('bonus-confirm-body').textContent = 'You will watch a short 5-second ad. The bonus slot can only be earned once today.';
+        $('btn-bonus-confirm').textContent = 'Yes, Watch Ad';
+      }
+      $('bonus-pay-choices').style.display = 'none';
+      $('bonus-confirm-step').style.display = 'block';
+    }
+    function cancelBonusConfirm() {
+      pendingBonusMethod = null;
+      $('bonus-confirm-step').style.display = 'none';
+      $('bonus-pay-choices').style.display = 'block';
+    }
+    async function confirmBonusUnlock() {
+      if (!pendingBonusMethod) return;
+      const m = pendingBonusMethod; pendingBonusMethod = null;
+      $('bonus-confirm-step').style.display = 'none';
+      unlockBonus(m);
+    }
+
     async function unlockBonus(method) {
       $('bonus-err').textContent = '';
       // Immediately disable both buttons to prevent double-tap
@@ -2499,13 +2785,16 @@
       closeModal('bonus-modal');
       const r = await fetch(`/api/workout/bonus_exercises?group=${bonusMuscle}`, { credentials: 'include' });
       const d = await r.json();
-      WK = d.exercises || []; wkGroup = bonusMuscle; isBonusWorkout = true;
+      WK = d.exercises || []; wkGroup = bonusMuscle; isBonusWorkout = true; isProgramWorkout = false; currentProgId = '';
       exIdx = 0; setIdx = 0; renderEx(); goTo('s-workout'); pStart();
     }
 
     // ─── WORKOUT ──────────────────────────────────────────────────
     function startWorkout(isBonus) {
-      isBonusWorkout = !!isBonus; exIdx = 0; setIdx = 0; renderEx(); goTo('s-workout'); pStart();
+      isBonusWorkout = !!isBonus;
+      // isProgramWorkout and wkGroup already set correctly by renderHome when a program is active
+      if (!isBonusWorkout && !isProgramWorkout) { currentProgId = ''; }
+      exIdx = 0; setIdx = 0; renderEx(); goTo('s-workout'); pStart();
     }
     function renderEx() {
       const ex = WK[exIdx]; if (!ex) return;
@@ -2564,11 +2853,14 @@
       const r = await api('/api/workout/complete', { group: wkGroup, exercises: WK.length, sets: totalSets, is_bonus: isBonusWorkout });
       pWin(); setTimeout(pGem, 600);
       $('c-streak').textContent = r.streak;
-      $('c-stats').textContent = `${WK.length} exercises · ${totalSets} sets · ${cap(curInt)}${isBonusWorkout ? ' · Bonus' : ''}`;
+      $('c-stats').textContent = `${WK.length} exercises · ${totalSets} sets · ${cap(curInt)}${isBonusWorkout ? ' · Bonus' : ''}${isProgramWorkout ? ' · Program' : ''}`;
       $('c-gems-val').textContent = `+${r.gems_earned}`;
       if (r.kcal > 0) { $('c-kcal-b').style.display = 'inline-flex'; $('c-kcal-val').textContent = `~${r.kcal} kcal`; }
       else $('c-kcal-b').style.display = 'none';
-      if (!isBonusWorkout) {
+      if (isProgramWorkout) {
+        $('c-week').textContent = `Program session complete! 💪 Great work.`;
+        isProgramWorkout = false; currentProgId = '';
+      } else if (!isBonusWorkout) {
         const prog = `${r.days_done}/${r.days_goal} days this week`;
         let weekMsg = r.days_done >= r.days_goal ? `${prog} 🎉 Goal reached!` : `${prog} — keep going!`;
         if (r.week_bonus > 0) { weekMsg += ` +${r.week_bonus} 💎 weekly bonus!`; pGem(); }
@@ -2690,48 +2982,7 @@
       pGem(); S.gems = r.gems; renderQuiz();
     }
 
-    // ─── PROGRESS ─────────────────────────────────────────────────
-    async function renderProgress() {
-      $('p-streak').textContent = S.streak || 0;
-      $('p-best').textContent = S.best_streak || 0;
-      $('p-sessions').textContent = S.total_sessions || 0;
-      $('p-week').textContent = Object.keys(S.week_done || {}).length;
-      $('prog-gems').textContent = S.gems || 0;
-      // Weight graph
-      const wr = await fetch('/api/weight_log', { credentials: 'include' }); const wd = await wr.json();
-      const log = wd.log || []; const m = wd.metrics || {};
-      if (log.length >= 2) {
-        $('graph-empty').style.display = 'none';
-        $('wt-svg').style.display = 'block';
-        drawGraph(log);
-      } else {
-        $('graph-empty').style.display = 'flex';
-        $('wt-svg').style.display = 'none';
-      }
-      if (m.weight_kg) {
-        $('metrics-summary').style.display = 'grid';
-        $('pm-wt').innerHTML = `${m.weight_kg}<span class="metric-unit"> kg</span>`;
-        $('pm-ht').innerHTML = `${m.height_cm || '—'}<span class="metric-unit"> cm</span>`;
-        const bmi = m.weight_kg && m.height_cm ? +(m.weight_kg / ((m.height_cm / 100) ** 2)).toFixed(1) : null;
-        $('pm-bmi').innerHTML = bmi ? `${bmi}` : '—';
-        const totalKcal = (S.history || []).reduce((a, b) => a + (b.kcal || 0), 0);
-        $('pm-kcal').innerHTML = `${totalKcal.toLocaleString()}<span class="metric-unit"> kcal</span>`;
-      } else $('metrics-summary').style.display = 'none';
-      // History
-      const hist = $('hist-list');
-      const h = (S.history || []).slice().reverse().slice(0, 20);
-      if (!h.length) { hist.innerHTML = '<div class="hint" style="padding:10px 0">No sessions yet. Start your first workout!</div>'; return; }
-      hist.innerHTML = h.map(e => `<div class="hist-item">
-    <div>
-      <div style="font-weight:500;font-size:11px">${(e.group || '').toUpperCase()}${e.bonus ? ' <span style="font-size:8px;color:var(--warn)">[BONUS]</span>' : ''}</div>
-      <div class="hint" style="margin-top:1px">${e.date} · ${cap(e.intensity || '')}${e.kcal ? ` · 🔥${e.kcal}kcal` : ''}</div>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-      <div class="pill g">${e.exercises}ex · ${e.sets}sets</div>
-      <div class="pill b">+${e.gems || 0} 💎</div>
-    </div>
-  </div>`).join('');
-    }
+    // renderProgress removed — now handled by loadProgressData() inside profileTab()
 
     function drawGraph(log) {
       const svg = $('wt-svg');
@@ -2740,6 +2991,7 @@
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       svg.setAttribute('height', H);
       const vals = log.map(l => {
+        if (l.predicted_kg != null) return +parseFloat(l.predicted_kg).toFixed(2);
         const base = l.weight_kg || 70;
         const chg = l.kg_change || 0;
         return +(base + chg).toFixed(2);
@@ -2748,11 +3000,13 @@
       const range = maxV - minV || 0.1;
       const pad = { l: 36, r: 10, t: 12, b: 24 };
       const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
-      const xS = i => pad.l + (i / (log.length - 1)) * cW;
+      const xS = i => log.length === 1 ? pad.l + cW / 2 : pad.l + (i / (log.length - 1)) * cW;
       const yS = v => pad.t + cH - ((v - minV) / range) * cH;
       const pts = log.map((_, i) => ({ x: xS(i), y: yS(vals[i]) }));
-      const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-      const areaD = pathD + ` L${pts[pts.length - 1].x},${H - pad.b} L${pts[0].x},${H - pad.b} Z`;
+      const pathD = pts.length > 1
+        ? pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+        : `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+      const areaD = pts.length > 1 ? pathD + ` L${pts[pts.length - 1].x},${H - pad.b} L${pts[0].x},${H - pad.b} Z` : '';
       // Grid
       const gridLines = [0, .5, 1].map(t => {
         const y = pad.t + t * cH;
@@ -2761,7 +3015,8 @@
             <text x="${(pad.l - 4).toFixed(0)}" y="${(y + 3).toFixed(0)}" text-anchor="end" font-family="'DM Mono',monospace" font-size="8" fill="#585868">${v}</text>`;
       }).join('');
       // X labels (first, middle, last)
-      const xLabels = [0, Math.floor((log.length - 1) / 2), log.length - 1].filter((v, i, a) => a.indexOf(v) === i).map(i => {
+      const xLabelIdx = log.length === 1 ? [0] : [0, Math.floor((log.length - 1) / 2), log.length - 1].filter((v, i, a) => a.indexOf(v) === i);
+      const xLabels = xLabelIdx.map(i => {
         const x = xS(i).toFixed(1);
         const lbl = log[i].date.slice(0, 6);
         return `<text x="${x}" y="${H - 4}" text-anchor="middle" font-family="'DM Mono',monospace" font-size="7.5" fill="#585868">${lbl}</text>`;
@@ -2782,6 +3037,15 @@
     }
 
     // ─── STORE ────────────────────────────────────────────────────
+    // ── Store tab switching ─────────────────────────────────────────
+    function storeTab(tab) {
+      ['gems', 'free'].forEach(t => {
+        $('stab-' + t).classList.toggle('on', t === tab);
+        $('store-tab-' + t).style.display = t === tab ? 'block' : 'none';
+      });
+      if (tab === 'free') renderFreeGems();
+    }
+
     function renderStore() {
       $('st-gems').textContent = S.gems || 0;
       $('st-gems-disp').textContent = S.gems || 0;
@@ -2793,18 +3057,415 @@
         d.textContent = i < (S.shields || 0) ? '🛡️' : '○';
         dots.appendChild(d);
       }
-      // Packages
+      // Gem packages
       const grid = $('pkg-grid'); grid.innerHTML = '';
       (S.gem_packages || []).forEach(pkg => {
         const d = document.createElement('div');
         d.className = 'pkg' + (pkg.popular ? ' pop' : '');
         d.onclick = () => openPurchase(pkg.id, pkg.label, pkg.gems, pkg.usd, pkg.price);
         d.innerHTML = `${pkg.popular ? '<div class="pkg-top">Most Popular</div>' : ''}
-      <div style="font-size:9px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-top:${pkg.popular ? 12 : 0}px">${pkg.label}</div>
-      <div class="pkg-gems">💎 ${pkg.gems}</div>
-      <div class="pkg-price">${pkg.usd}</div>
-      <div class="pkg-idr">${pkg.price}</div>`;
+          <div style="font-size:9px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-top:${pkg.popular ? 12 : 0}px">${pkg.label}</div>
+          <div class="pkg-gems">💎 ${pkg.gems}</div>
+          <div class="pkg-price">${pkg.usd}</div>
+          <div class="pkg-idr">${pkg.price}</div>`;
         grid.appendChild(d);
+      });
+      // Reset to gems tab on open
+      storeTab('gems');
+    }
+
+    // ── Programs tab ────────────────────────────────────────────────
+    function progIsActive(progId) {
+      const access = S.program_access || {};
+      const expiry = access[progId] || '';
+      const today = new Date().toISOString().slice(0, 10);
+      return expiry >= today;
+    }
+    function progDaysLeft(progId) {
+      const access = S.program_access || {};
+      const expiry = access[progId] || '';
+      if (!expiry) return 0;
+      const diff = (new Date(expiry) - new Date(new Date().toISOString().slice(0, 10))) / 86400000;
+      return Math.max(0, Math.round(diff) + 1);
+    }
+
+    function renderPrograms() {
+      const list = $('programs-list'); list.innerHTML = '';
+      (S.training_programs || []).forEach(p => {
+        const active = progIsActive(p.id);
+        const daysLeft = active ? progDaysLeft(p.id) : 0;
+        const levelColors = { Beginner: '#5dd87a', Intermediate: '#c8f55a', Advanced: '#f5a623' };
+        const lc = levelColors[p.level] || 'var(--mid)';
+        const div = document.createElement('div');
+        div.className = 'prog-card' + (active ? ' owned' : '');
+        div.innerHTML = `
+          ${active ? `<div class="prog-owned-tag">✓ Active — ${daysLeft}d left</div>` : ''}
+          <div class="prog-card-hdr">
+            <div class="prog-icon" style="background:${p.color}18;border:1px solid ${p.color}33">
+              <span style="font-size:22px">${p.emoji}</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="prog-badge" style="background:${lc}18;color:${lc}">${p.level}</div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;line-height:1">${p.title}</div>
+              <div class="hint" style="font-size:10px;margin-top:2px">${p.tagline}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+            <span style="font-size:9px;color:var(--dim)">📅 ${p.weeks} week${p.weeks !== 1 ? 's' : ''} of content</span>
+            <span style="font-size:9px;color:var(--gem)">⏱️ 7-day access</span>
+          </div>
+          ${active ? `<div style="background:rgba(200,245,90,.07);border:1px solid rgba(200,245,90,.2);border-radius:5px;padding:7px 10px;margin-bottom:10px;font-size:10px;color:var(--accent)">
+            Access expires: ${(S.program_access || {})[p.id]} · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining
+          </div>` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <button class="btn btn-g" onclick="openProgModal('${p.id}')"
+              style="flex:1;padding:9px 14px;font-size:10px">View Details</button>
+            ${active
+            ? `<span style="font-size:11px;color:var(--accent);font-weight:500;flex-shrink:0">✓ Active</span>`
+            : `<button class="btn btn-gem" onclick="openProgModal('${p.id}')"
+                  style="width:auto;padding:9px 14px;font-size:10px;flex-shrink:0">💎 ${p.cost}</button>`}
+          </div>`;
+        list.appendChild(div);
+      });
+    }
+
+    function renderProgramsScreen() {
+      if ($('prg-gems')) $('prg-gems').textContent = S.gems || 0;
+      // Reuse the same programs-list div — it's now on s-programs screen
+      renderPrograms();
+    }
+
+    let pendingProgId = null;
+    function openProgModal(progId) {
+      const p = (S.training_programs || []).find(x => x.id === progId);
+      if (!p) return;
+      pendingProgId = progId;
+      const active = progIsActive(progId);
+      const daysLeft = active ? progDaysLeft(progId) : 0;
+      const levelColors = { Beginner: '#5dd87a', Intermediate: '#c8f55a', Advanced: '#f5a623' };
+      const lc = levelColors[p.level] || 'var(--mid)';
+      $('pm-icon').innerHTML = p.emoji;
+      $('pm-icon').style.background = p.color + '22';
+      $('pm-title').textContent = p.title;
+      $('pm-tagline').textContent = p.tagline;
+      $('pm-desc').textContent = p.description;
+      $('pm-weeks').textContent = p.weeks;
+      $('pm-level').innerHTML = `<span style="color:${lc}">${p.level}</span>`;
+
+      // Sample workouts — show first 2 exercises clearly, blur the rest
+      const wl = $('pm-workouts'); wl.innerHTML = '';
+      (p.workouts || []).slice(0, 3).forEach(w => {
+        const d = document.createElement('div');
+        d.style.cssText = 'background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;position:relative;overflow:hidden';
+        const exs = w.exercises || [];
+        const visible = active ? exs : exs.slice(0, 2);
+        const hidden = active ? [] : exs.slice(2);
+        d.innerHTML = `
+          <div style="font-size:10px;font-weight:500;margin-bottom:6px;color:var(--accent)">Week ${w.week} — ${w.focus}</div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            ${visible.map(e => `<div style="font-size:9px;color:var(--mid)">• ${e}</div>`).join('')}
+            ${hidden.length ? `
+              <div style="position:relative;margin-top:2px">
+                <div style="display:flex;flex-direction:column;gap:3px;filter:blur(3.5px);user-select:none;pointer-events:none">
+                  ${hidden.map(e => `<div style="font-size:9px;color:var(--mid)">• ${e}</div>`).join('')}
+                </div>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                  <span style="font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--s2);padding:2px 8px;border-radius:3px;border:1px solid rgba(200,245,90,.3)">🔒 Unlock to see all</span>
+                </div>
+              </div>` : ''}
+          </div>`;
+        wl.appendChild(d);
+      });
+
+      // Owned section shows expiry; buy section shows price + access info
+      $('pm-err').textContent = '';
+      $('pm-buy-section').style.display = active ? 'none' : 'block';
+      $('pm-owned-section').style.display = active ? 'block' : 'none';
+      if (active) {
+        const expiry = (S.program_access || {})[progId] || '';
+        const apList = Array.isArray(S.active_program) ? S.active_program
+          : (S.active_program ? [S.active_program] : []);
+        const currentActive = apList.find(x => x.id === progId) || null;
+        const isCurrentlySet = !!currentActive;
+        // Active info banner
+        $('pm-active-info').innerHTML = `
+          <div style="color:var(--accent);font-size:13px;font-weight:500;margin-bottom:3px">✓ Active — Full Access</div>
+          <div class="hint">Expires ${expiry} · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</div>`;
+        // Build week selection accordion — click week to expand exercises
+        const weeks = p.workouts || [];
+        const grid = $('pm-week-grid'); grid.innerHTML = '';
+        grid.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:14px';
+        weeks.forEach(w => {
+          const isActiveWeek = isCurrentlySet && currentActive.week === w.week;
+          const item = document.createElement('div');
+          item.style.cssText = `border:1px solid ${isActiveWeek ? 'var(--accent)' : 'var(--bd)'};border-radius:8px;overflow:hidden;background:var(--s1);transition:border-color .15s`;
+          item.dataset.week = w.week;
+
+          // Header row (always visible)
+          const hdr = document.createElement('div');
+          hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer;user-select:none';
+          // Build header as real elements — guarantees direct ref capture
+          const hdrLeft = document.createElement('div');
+          const titleEl = document.createElement('div');
+          titleEl.style.cssText = 'font-size:12px;font-weight:500';
+          titleEl.style.color = isActiveWeek ? 'var(--accent)' : 'var(--fg)';
+          titleEl.textContent = 'Week ' + w.week + (isActiveWeek ? ' ✓' : '');
+          const focusEl = document.createElement('div');
+          focusEl.style.cssText = 'font-size:10px;color:var(--dim);margin-top:1px';
+          focusEl.textContent = w.focus;
+          hdrLeft.appendChild(titleEl);
+          hdrLeft.appendChild(focusEl);
+          const hdrRight = document.createElement('div');
+          hdrRight.style.cssText = 'display:flex;align-items:center;gap:8px';
+          const chevron = document.createElement('span');
+          chevron.className = 'week-chevron';
+          chevron.style.cssText = 'font-size:10px;color:var(--dim);transition:transform .2s';
+          chevron.textContent = '▼';
+          hdrRight.appendChild(chevron);
+          hdr.appendChild(hdrLeft);
+          hdr.appendChild(hdrRight);
+
+          // Exercise list (hidden by default, show if currently active week)
+          const exList = document.createElement('div');
+          exList.className = 'week-ex-list';
+          exList.style.cssText = `display:${isActiveWeek ? 'block' : 'none'};border-top:1px solid var(--bd);padding:10px 14px`;
+          exList.innerHTML = (w.exercises || []).map(e =>
+            `<div style="font-size:10px;color:var(--mid);padding:3px 0;border-bottom:1px solid rgba(40,40,47,.5)">• ${e}</div>`
+          ).join('');
+          const setBtn = document.createElement('button');
+          setBtn.className = 'btn btn-p';
+          setBtn.style.cssText = 'margin-top:10px;width:100%;font-size:10px;padding:11px';
+          setBtn.textContent = isActiveWeek ? '\u2713 Currently Active' : `Set Week ${w.week} as Today \u2192`;
+          if (isActiveWeek) { setBtn.disabled = true; setBtn.style.opacity = '.5'; }
+          setBtn.addEventListener('click', async e => {
+            e.stopPropagation();
+            if (setBtn.disabled) return;
+            // Immediately show loading state on this button
+            setBtn.disabled = true;
+            setBtn.textContent = 'Activating…';
+            setBtn.style.opacity = '.6';
+            const r = await api('/api/programs/activate', { program_id: progId, week: w.week });
+            if (r.error) {
+              setBtn.disabled = false;
+              setBtn.textContent = 'Set Week ' + w.week + ' as Today →';
+              setBtn.style.opacity = '1';
+              $('pm-start-err').style.color = 'var(--danger)';
+              $('pm-start-err').textContent = r.error;
+              return;
+            }
+            // Update S and selectedWeek
+            S.active_program = r.active_program;
+            selectedProgId = progId;
+            selectedWeek = w.week;
+            pGem();
+            // Update every card immediately using stored refs
+            $('pm-week-grid').querySelectorAll('[data-week]').forEach(it => {
+              const iw = parseInt(it.dataset.week);
+              const isNow = iw === w.week;
+              it.style.borderColor = isNow ? 'var(--accent)' : 'var(--bd)';
+              if (it._titleEl) {
+                it._titleEl.textContent = 'Week ' + iw + (isNow ? ' ✓' : '');
+                it._titleEl.style.color = isNow ? 'var(--accent)' : 'var(--fg)';
+              }
+              if (it._chevron) it._chevron.style.color = isNow ? 'var(--accent)' : 'var(--dim)';
+              if (it._setBtn) {
+                it._setBtn.textContent = isNow ? '✓ Currently Active' : 'Set Week ' + iw + ' as Today →';
+                it._setBtn.disabled = isNow;
+                it._setBtn.style.opacity = isNow ? '.45' : '1';
+              }
+            });
+            // Update bottom button state
+            $('pm-start-err').style.color = 'var(--safe)';
+            $('pm-start-err').textContent = '🏠 Week set! Start it now or find it in the Today tab.';
+            renderHome();
+          });
+          exList.appendChild(setBtn);
+          // Store direct refs — titleEl, setBtn, chevron created above
+          item._titleEl = titleEl;
+          item._setBtn = setBtn;
+          item._chevron = chevron;
+
+          // Toggle expand/collapse on header click
+          hdr.onclick = () => {
+            const open = exList.style.display !== 'none';
+            // Collapse all others
+            grid.querySelectorAll('[data-week]').forEach(it => {
+              it.querySelector('.week-ex-list').style.display = 'none';
+              it.querySelector('.week-chevron').style.transform = '';
+            });
+            if (!open) {
+              exList.style.display = 'block';
+              chevron.style.transform = 'rotate(180deg)';
+            }
+          };
+
+          exList.className = 'week-ex-list';
+          if (isActiveWeek) chevron.style.transform = 'rotate(180deg)';
+
+          item.appendChild(hdr);
+          item.appendChild(exList);
+          grid.appendChild(item);
+        });
+        // Start button removed — activation is done via inner card buttons
+        $('pm-start-err').textContent = '';
+      } else {
+        // Access info note
+        const accessNote = $('pm-buy-section').querySelector('.prog-access-note');
+        if (!accessNote) {
+          const note = document.createElement('div');
+          note.className = 'prog-access-note';
+          note.innerHTML = `⏱️ <strong>7-day full access</strong> — Activate a week below and it appears in your Today tab. Re-purchase when access expires to continue.`;
+          $('pm-buy-section').insertBefore(note, $('pm-buy-btn'));
+        }
+        const canAfford = (S.gems || 0) >= p.cost;
+        $('pm-buy-btn').textContent = `💎 Unlock 1-Week Access — ${p.cost} Gems`;
+        $('pm-buy-btn').disabled = !canAfford;
+        $('pm-buy-btn').style.opacity = canAfford ? '1' : '.35';
+        if (!canAfford) $('pm-err').textContent = `Need ${p.cost} gems — you have ${S.gems || 0}.`;
+      }
+      openModal('prog-modal');
+    }
+
+    let selectedProgId = null, selectedWeek = null;
+
+    function selectProgramWeek(progId, week, itemEl) {
+      selectedProgId = progId;
+      selectedWeek = week;
+      // Highlight selected week card, reset others
+      $('pm-week-grid').querySelectorAll('[data-week]').forEach(it => {
+        it.style.borderColor = 'var(--bd)';
+      });
+      if (itemEl) itemEl.style.borderColor = 'var(--accent)';
+      // Properly enable the activate button
+      $('pm-start-err').style.color = 'var(--danger)';
+      $('pm-start-err').textContent = '';
+    }
+
+    async function startProgramWorkout() {
+      // This now ACTIVATES the program week — sets it as today's workout
+      if (!selectedProgId || !selectedWeek) return;
+      const r = await api('/api/programs/activate', { program_id: selectedProgId, week: selectedWeek });
+      if (r.error) {
+        $('pm-start-err').textContent = r.error;
+        return;
+      }
+      pGem();
+      S.active_program = r.active_program;
+      // Show run workout button
+      // Show success banner
+      $('pm-start-err').style.color = 'var(--safe)';
+      $('pm-start-err').textContent = '🏠 Week set! Start it now or find it in the Today tab.';
+      // Refresh week grid immediately — use stored refs for reliability
+      $('pm-week-grid').querySelectorAll('[data-week]').forEach(item => {
+        const iw = parseInt(item.dataset.week);
+        const isNow = iw === selectedWeek;
+        // Card border
+        item.style.borderColor = isNow ? 'var(--accent)' : 'var(--bd)';
+        // Title text + colour (stored ref)
+        if (item._titleEl) {
+          item._titleEl.textContent = 'Week ' + iw + (isNow ? ' ✓' : '');
+          item._titleEl.style.color = isNow ? 'var(--accent)' : 'var(--fg)';
+        }
+        // Chevron colour (stored ref)
+        if (item._chevron) item._chevron.style.color = isNow ? 'var(--accent)' : 'var(--dim)';
+        // Set button text + state (stored ref)
+        if (item._setBtn) {
+          item._setBtn.textContent = isNow ? '✓ Currently Active' : 'Set Week ' + iw + ' as Today →';
+          item._setBtn.disabled = isNow;
+          item._setBtn.style.opacity = isNow ? '.45' : '1';
+        }
+      });
+      // Refresh home in background
+      renderHome();
+    }
+
+    async function runProgramWorkoutNow() {
+      const ap = S.active_program;
+      if (!ap) return;
+      if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+      try {
+        const r = await fetch(`/api/programs/workout?program_id=${ap.id}&week=${ap.week}`, { credentials: 'include' });
+        const d = await r.json();
+        if (d.error) { if (btn) { btn.disabled = false; btn.textContent = `Start Week ${ap.week} Workout Now`; } alert(d.error); return; }
+        WK = d.exercises || []; wkGroup = d.program_title + ' · W' + d.week; curInt = d.intensity || 'intermediate';
+        isBonusWorkout = false; isProgramWorkout = true; currentProgId = ap.id;
+        closeModal('prog-modal'); exIdx = 0; setIdx = 0; renderEx(); goTo('s-workout'); pStart();
+      } catch (e) { if (btn) { btn.disabled = false; btn.textContent = 'Start Workout Now'; } alert('Network error.'); }
+    }
+
+    function startProgramFromHome(idx) {
+      const extras = window._programExtras || [];
+      const pe = extras[idx || 0];
+      if (!pe) return;
+      WK = pe.exercises || [];
+      wkGroup = pe.program_title + ' · W' + pe.program_week;
+      curInt = S.intensity || 'intermediate';
+      isBonusWorkout = false; isProgramWorkout = true; currentProgId = pe.program_id;
+      exIdx = 0; setIdx = 0; renderEx(); goTo('s-workout'); pStart();
+    }
+
+    async function deactivateProgram(progId) {
+      const body = progId ? { program_id: progId } : {};
+      const r = await api('/api/programs/activate', body);
+      if (r.ok) {
+        S.active_program = r.active_program;
+        await renderHome();
+      }
+    }
+
+    async function buyProgram() {
+      if (!pendingProgId) return;
+      $('pm-buy-btn').disabled = true; $('pm-buy-btn').textContent = 'Processing…';
+      const r = await api('/api/programs/purchase', { program_id: pendingProgId });
+      $('pm-buy-btn').disabled = false;
+      if (r.error) {
+        $('pm-err').textContent = r.error;
+        const p = (S.training_programs || []).find(x => x.id === pendingProgId);
+        if (p) $('pm-buy-btn').textContent = `💎 Unlock 1-Week Access — ${p.cost} Gems`;
+        return;
+      }
+      pGem();
+      S.gems = r.gems;
+      // Update local access map
+      if (!S.program_access) S.program_access = {};
+      S.program_access[pendingProgId] = r.expiry;
+      $('st-gems').textContent = r.gems;
+      $('hud-gems').textContent = r.gems;
+      $('tb-gems').textContent = r.gems;
+      // Re-open modal in owned state
+      openProgModal(pendingProgId);
+      renderPrograms();
+      if ($("prg-gems")) $("prg-gems").textContent = S.gems || 0;
+    }
+
+    // ── Free gems tab ───────────────────────────────────────────────
+    function renderFreeGems() {
+      const done = S.ad_gems_done || false;
+      $('ad-gems-amount').textContent = S.ad_gems_reward || 30;
+      $('btn-watch-ad-store').style.display = done ? 'none' : 'block';
+      $('ad-gem-done-msg').style.display = done ? 'block' : 'none';
+      $('ad-gem-card').className = 'ad-gem-card' + (done ? ' ad-gem-done' : '');
+      $('ad-store-ok').textContent = '';
+    }
+    function watchStoreAd() {
+      $('btn-watch-ad-store').disabled = true;
+      showAd(async () => {
+        const r = await api('/api/store/watch_ad');
+        if (r.error) {
+          $('ad-store-ok').textContent = r.error === 'already_done'
+            ? 'Already claimed today. Come back tomorrow!'
+            : r.error;
+          $('btn-watch-ad-store').disabled = false;
+          return;
+        }
+        pGem();
+        S.gems = r.gems;
+        S.ad_gems_done = true;
+        $('hud-gems').textContent = r.gems;
+        $('tb-gems').textContent = r.gems;
+        $('st-gems').textContent = r.gems;
+        $('ad-store-ok').textContent = `✓ +${r.gems_earned} gems added!`;
+        renderFreeGems();
       });
     }
     function openPurchase(id, label, gems, usd, idr) {
@@ -2836,6 +3497,7 @@
 
     // ─── PROFILE ──────────────────────────────────────────────────
     function renderProfile() {
+      $('prog-gems').textContent = S.gems || 0;
       $('prof-name').textContent = S.name || '';
       $('prof-email').textContent = S.email || '';
       $('prof-avatar').textContent = (S.name || '?')[0].toUpperCase();
@@ -2950,17 +3612,64 @@
     }
 
     // ─── NAV ──────────────────────────────────────────────────────
+    function profileTab(tab) {
+      ['progress', 'settings'].forEach(t => {
+        $('ptab-' + t).classList.toggle('on', t === tab);
+        $('profile-tab-' + t).style.display = t === tab ? 'block' : 'none';
+      });
+      if (tab === 'progress') loadProgressData();
+    }
+    async function loadProgressData() {
+      $('p-streak').textContent = S.streak || 0;
+      $('p-best').textContent = S.best_streak || 0;
+      $('p-sessions').textContent = S.total_sessions || 0;
+      $('p-week').textContent = Object.keys(S.week_done || {}).length;
+      $('prog-gems').textContent = S.gems || 0;
+      const wr = await fetch('/api/weight_log', { credentials: 'include' }); const wd = await wr.json();
+      const log = wd.log || []; const m = wd.metrics || {};
+      if (log.length >= 1) {
+        $('graph-empty').style.display = 'none';
+        $('wt-svg').style.display = 'block';
+        drawGraph(log);
+      } else {
+        $('graph-empty').style.display = 'flex';
+        $('wt-svg').style.display = 'none';
+      }
+      if (m.weight_kg) {
+        $('metrics-summary').style.display = 'grid';
+        $('pm-wt').innerHTML = `${m.weight_kg}<span class="metric-unit"> kg</span>`;
+        $('pm-ht').innerHTML = `${m.height_cm || '—'}<span class="metric-unit"> cm</span>`;
+        const bmi = m.weight_kg && m.height_cm ? +(m.weight_kg / ((m.height_cm / 100) ** 2)).toFixed(1) : null;
+        $('pm-bmi').innerHTML = bmi ? `${bmi}` : '—';
+        const totalKcal = (S.history || []).reduce((a, b) => a + (b.kcal || 0), 0);
+        $('pm-kcal').innerHTML = `${totalKcal.toLocaleString()}<span class="metric-unit"> kcal</span>`;
+      } else $('metrics-summary').style.display = 'none';
+      const hist = $('hist-list');
+      const h = (S.history || []).slice().reverse().slice(0, 20);
+      if (!h.length) { hist.innerHTML = '<div class="hint" style="padding:10px 0">No sessions yet. Start your first workout!</div>'; return; }
+      hist.innerHTML = h.map(e => `<div class="hist-item">
+        <div>
+          <div style="font-weight:500;font-size:11px">${(e.group || '').toUpperCase()}${e.bonus ? ' <span style="font-size:8px;color:var(--warn)">[BONUS]</span>' : ''}</div>
+          <div class="hint" style="margin-top:1px">${e.date} · ${cap(e.intensity || '')}${e.kcal ? ` · 🔥${e.kcal}kcal` : ''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+          <div class="pill g">${e.exercises}ex · ${e.sets}sets</div>
+          <div class="pill b">+${e.gems || 0} 💎</div>
+        </div>
+      </div>`).join('');
+    }
+
     function navTo(tab) {
-      const map = { home: 's-home', quiz: 's-quiz', prog: 's-progress', store: 's-store', profile: 's-profile', settings: 's-settings' };
+      const map = { home: 's-home', quiz: 's-quiz', programs: 's-programs', store: 's-store', profile: 's-profile', settings: 's-settings' };
       const id = map[tab]; if (!id) return;
-      ['home', 'quiz', 'prog', 'store', 'profile'].forEach(t => $('nav-' + t).classList.remove('on'));
+      ['home', 'quiz', 'programs', 'store', 'profile'].forEach(t => { const el = $('nav-' + t); if (el) el.classList.remove('on'); });
       if (tab !== 'settings') $('nav-' + tab)?.classList.add('on');
       if (tab === 'settings') { prevScreen = document.querySelector('.screen.active')?.id || 's-home'; }
       if (tab === 'home') { renderHome(); goTo('s-home'); }
       else if (tab === 'quiz') { renderQuiz(); goTo('s-quiz'); }
-      else if (tab === 'prog') { renderProgress(); goTo('s-progress'); }
+      else if (tab === 'programs') { renderProgramsScreen(); goTo('s-programs'); }
       else if (tab === 'store') { renderStore(); goTo('s-store'); }
-      else if (tab === 'profile') { renderProfile(); goTo('s-profile'); }
+      else if (tab === 'profile') { renderProfile(); profileTab('progress'); goTo('s-profile'); }
       else if (tab === 'settings') { renderSettings(); goTo('s-settings'); }
     }
 
