@@ -1010,6 +1010,12 @@
       opacity: .8
     }
 
+    .quiz-opt.selected {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(200, 245, 90, .07)
+    }
+
     .quiz-opt.correct {
       border-color: var(--safe);
       background: rgba(93, 216, 122, .1);
@@ -1619,7 +1625,10 @@
       <div id="form-signup" style="display:none">
         <div class="field"><label>Name</label><input type="text" id="s-name" placeholder="Your name"></div>
         <div class="field"><label>Email</label><input type="email" id="s-email" placeholder="you@example.com"
-            autocomplete="email"></div>
+            autocomplete="email" oninput="validateEmail()">
+          <div id="s-email-hint" style="font-size:10px;margin-top:3px;color:var(--dim)">e.g. name@gmail.com ·
+            name@outlook.com</div>
+        </div>
         <div class="field"><label>Password</label><input type="password" id="s-pw" placeholder="Min 6 characters"
             autocomplete="new-password"></div>
         <div class="err" id="s-err"></div>
@@ -1802,7 +1811,9 @@
       <div id="home-cta" style="padding-top:14px;margin-top:auto">
         <div style="font-size:10px;color:var(--gem);margin-bottom:8px">💎 <span id="gems-preview">+15 gems</span> for
           completing today</div>
-        <button class="btn btn-p" onclick="startWorkout(false)">Start Workout →</button>
+        <button class="btn btn-p"
+          onclick="confirmWorkout('💪','Ready to train?',`${WK.length} exercises · ${curInt}`,()=>startWorkout(false))">Start
+          Workout →</button>
       </div>
       <!-- Program extra section (shown when a program week is active) -->
       <!-- Program extras: dynamically rendered, one per active program -->
@@ -2191,7 +2202,7 @@
       </div>
       <div class="pref-sec">
         <div class="pref-sec-title">About</div>
-        <div class="pref-row"><span>Version</span><span class="pref-val">v1.1.0</span></div>
+        <div class="pref-row"><span>Version</span><span class="pref-val">v1.1.1</span></div>
         <div class="pref-row"><span>Exercises</span><span class="pref-val">Floor-only, zero equipment</span></div>
         <div class="pref-row"><span>Shield max</span><span class="pref-val">2 shields</span></div>
         <div class="pref-row"><span>Quiz</span><span class="pref-val">10 questions/day · 2 lives · 60 question
@@ -2262,8 +2273,9 @@
                 <div class="sc-name">Full</div>
               </div>
             </div>
-            <button class="btn btn-p" onclick="startBonusWorkout()" style="margin-top:12px" id="btn-start-bonus"
-              disabled>Start Bonus Workout →</button>
+            <button class="btn btn-p"
+              onclick="confirmWorkout('🔥','Bonus Workout','Extra · '+bonusMuscle,()=>startBonusWorkout())"
+              style="margin-top:12px" id="btn-start-bonus" disabled>Start Bonus Workout →</button>
           </div>
         </div>
 
@@ -2379,6 +2391,21 @@
           <div class="lbl" style="margin-bottom:8px">Select a week to train</div>
           <div id="pm-week-grid"></div>
           <div class="err" id="pm-start-err" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ WORKOUT CONFIRM MODAL ═════════════════════ -->
+    <div class="modal-bg" id="workout-confirm-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div style="text-align:center;padding:8px 0 16px">
+          <div style="font-size:36px;margin-bottom:10px" id="wc-emoji">💪</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;margin-bottom:6px" id="wc-title">Ready to
+            train?</div>
+          <div class="hint" id="wc-desc" style="margin-bottom:20px"></div>
+          <button class="btn btn-p" id="wc-confirm-btn" style="width:100%;margin-bottom:8px">▶ Let's Go!</button>
+          <button class="btn btn-g" onclick="closeModal('workout-confirm-modal')" style="width:100%">Not yet</button>
         </div>
       </div>
     </div>
@@ -2560,12 +2587,23 @@
       if (r.setup) { await loadState(); await renderHome(); goTo('s-home'); }
       else goTo('s-body');
     }
+    function validateEmail() {
+      const v = $('s-email').value.trim();
+      const ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+      const h = $('s-email-hint');
+      if (!v) { h.textContent = 'e.g. name@gmail.com · name@outlook.com'; h.style.color = 'var(--dim)'; }
+      else if (ok) { h.textContent = '✓ Looks good'; h.style.color = 'var(--safe)'; }
+      else { h.textContent = 'Enter a valid email like name@gmail.com'; h.style.color = 'var(--danger)'; }
+      return ok;
+    }
     async function doSignup() {
       $('s-err').textContent = '';
       const name = $('s-name').value.trim();
       const email = $('s-email').value.trim();
       const pw = $('s-pw').value;
       if (!name || !email || !pw) { $('s-err').textContent = 'All fields are required.'; return; }
+      if (!validateEmail()) { $('s-err').textContent = 'Enter a valid email (e.g. name@gmail.com).'; return; }
+      if (pw.length < 6) { $('s-err').textContent = 'Password must be at least 6 characters.'; return; }
       const r = await api('/api/auth/signup', { name, email, pw });
       if (r.error) { $('s-err').textContent = r.error; return; }
       goTo('s-body');
@@ -2674,9 +2712,17 @@
             <button onclick="deactivateProgram('${pe.program_id}')" style="background:none;border:none;color:var(--dim);font-size:10px;cursor:pointer;padding:2px 6px;font-family:'DM Mono',monospace">✕</button>
           </div>
           <div class="ex-list">${exRows}</div>
-          <div style="padding-top:12px">
-            <button class="btn btn-safe" onclick="startProgramFromHome(${idx})">▶ Start Workout →</button>
-          </div>`;
+          <div style="padding-top:12px" class="prog-start-wrap"></div>`;
+        // Build start button with addEventListener so pe/idx are captured in closure
+        const startBtn = document.createElement('button');
+        startBtn.className = 'btn btn-safe';
+        startBtn.textContent = '▶ Start Workout →';
+        startBtn.addEventListener('click', () => {
+          confirmWorkout(pe.program_emoji || '🏋️', pe.program_title,
+            'Week ' + pe.program_week + ' · ' + pe.program_focus,
+            () => startProgramFromHome(idx));
+        });
+        sec.querySelector('.prog-start-wrap').appendChild(startBtn);
         container.appendChild(sec);
       });
     }
@@ -2790,6 +2836,13 @@
     }
 
     // ─── WORKOUT ──────────────────────────────────────────────────
+    function confirmWorkout(emoji, title, desc, onConfirm) {
+      $('wc-emoji').textContent = emoji || '💪';
+      $('wc-title').textContent = title || 'Ready to train?';
+      $('wc-desc').textContent = desc || '';
+      $('wc-confirm-btn').onclick = () => { closeModal('workout-confirm-modal'); onConfirm(); };
+      openModal('workout-confirm-modal');
+    }
     function startWorkout(isBonus) {
       isBonusWorkout = !!isBonus;
       // isProgramWorkout and wkGroup already set correctly by renderHome when a program is active
@@ -2933,44 +2986,58 @@
           <div class="quiz-q-box">
             <div class="quiz-q">${q.q}</div>
             <div class="quiz-opts" id="q-opts">
-              ${(q.opts || []).map((o, i) => `<button class="quiz-opt" onclick="answerQuiz(${i},this)" data-i="${i}">${o}</button>`).join('')}
+              ${(q.opts || []).map((o, i) => `<button class="quiz-opt" onclick="selectQuizOption(${i},this)" data-i="${i}">${o}</button>`).join('')}
             </div>
           </div>
+          <div id="q-confirm-row" style="display:none;gap:8px;margin:10px 0 4px">
+            <button class="btn btn-p" onclick="submitQuiz()" style="flex:1;padding:10px;font-size:11px">Submit Answer →</button>
+            <button class="btn btn-g" onclick="cancelQuizSelection()" style="width:auto;padding:10px 14px;font-size:11px">Cancel</button>
+          </div>
           <div id="q-exp"></div>
+          <div id="q-next-row" style="display:none;padding:4px 0 2px">
+            <button class="btn btn-p" onclick="nextQuizQuestion()" style="width:100%;padding:11px;font-size:11px">Next Question →</button>
+          </div>
         </div>`;
     }
 
-    async function answerQuiz(answerIdx, btn) {
-      if (quizAnswered) return;
-      quizAnswered = true;
-      const r = await api('/api/quiz/answer', { answer: answerIdx });
-      const opts = $('q-opts');
-      if (opts) opts.querySelectorAll('.quiz-opt').forEach(b => { b.disabled = true; });
-      const expEl = $('q-exp');
+    let _selIdx = null, _selBtn = null;
 
+    function selectQuizOption(idx, btn) {
+      if (quizAnswered) return;
+      _selIdx = idx; _selBtn = btn;
+      $('q-opts').querySelectorAll('.quiz-opt').forEach(b => b.classList.toggle('selected', b === btn));
+      const cr = $('q-confirm-row'); if (cr) cr.style.display = 'flex';
+    }
+
+    function cancelQuizSelection() {
+      _selIdx = null; _selBtn = null;
+      $('q-opts').querySelectorAll('.quiz-opt').forEach(b => b.classList.remove('selected'));
+      const cr = $('q-confirm-row'); if (cr) cr.style.display = 'none';
+    }
+
+    async function submitQuiz() {
+      if (quizAnswered || _selIdx === null) return;
+      quizAnswered = true;
+      const cr = $('q-confirm-row'); if (cr) cr.style.display = 'none';
+      const r = await api('/api/quiz/answer', { answer: _selIdx });
+      const opts = $('q-opts');
+      if (opts) opts.querySelectorAll('.quiz-opt').forEach(b => { b.disabled = true; b.classList.remove('selected'); });
+      const expEl = $('q-exp');
       if (r.correct) {
-        pGem(); btn.classList.add('correct');
-        if (expEl) expEl.innerHTML = `<div class="quiz-exp c" style="margin:10px 16px 14px">✓ Correct! +${r.gems_earned} gems<br><span style="opacity:.8">${r.explanation}</span></div>`;
-        S.gems = r.gems;
-        $('qz-gems').textContent = r.gems; $('hud-gems').textContent = r.gems; $('tb-gems').textContent = r.gems;
+        pGem(); if (_selBtn) _selBtn.classList.add('correct');
+        if (expEl) expEl.innerHTML = `<div class="quiz-exp c" style="margin:10px 16px 14px">✓ Correct! +${r.gems_earned} gems<br><span style="opacity:.8;font-size:11px">${r.explanation}</span></div>`;
+        S.gems = r.gems; $('qz-gems').textContent = r.gems; $('hud-gems').textContent = r.gems; $('tb-gems').textContent = r.gems;
       } else {
-        pWrong(); btn.classList.add('wrong');
+        pWrong(); if (_selBtn) _selBtn.classList.add('wrong');
         if (opts) opts.querySelectorAll('.quiz-opt').forEach((b, i) => { if (i === r.correct_answer) b.classList.add('correct'); });
         if (expEl) expEl.innerHTML = `<div class="quiz-exp w" style="margin:10px 16px 14px">✗ Wrong — ${r.explanation}</div>`;
       }
-
-      // Update lives display
       $('lives-row').querySelectorAll('.life-dot').forEach((dot, i) => { dot.classList.toggle('lost', i >= (r.lives || 0)); });
-
-      // Move to next question after a short delay
-      if (r.session_done) {
-        setTimeout(() => renderQuiz(), 1600);
-      } else if (r.lives <= 0) {
-        setTimeout(() => renderQuiz(), 1600);
-      } else {
-        setTimeout(() => renderQuiz(), 1600);
-      }
+      if (r.session_done || r.lives <= 0) { setTimeout(() => renderQuiz(), 1800); }
+      else { const nr = $('q-next-row'); if (nr) nr.style.display = 'block'; }
     }
+
+    function nextQuizQuestion() { _selIdx = null; _selBtn = null; renderQuiz(); }
 
     async function revive(method) {
       if (method === 'ad') {
