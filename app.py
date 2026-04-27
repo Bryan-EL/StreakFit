@@ -1,5 +1,5 @@
 """
-StreakFit — Calisthenics App v1
+StreakFit — Calisthenics App v2
 Run:   python app.py
 Open:  http://192.168.18.219:5000
 """
@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "streakfit_v1_xk92_secret"
+app.secret_key = "streakfit_v2_xk92_secret"
 
 # ─── SUPABASE / POSTGRES CONNECTION ───────────────────────────────────
 # Set DATABASE_URL as an environment variable on your server:
@@ -1319,7 +1319,7 @@ def reset():
     return jsonify({"ok":True})
 
 if __name__ == "__main__":
-    print("\n🏋️  StreakFit Calisthenics App v1")
+    print("\n🏋️  StreakFit Calisthenics App v2")
     print("━"*38)
     print("▶  http://192.168.18.219:5000")
     print("━"*38+"\n")

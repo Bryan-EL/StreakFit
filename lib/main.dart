@@ -3876,7 +3876,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // About section
           _prefSec('About', [
-            _prefRow('Version', 'v1.1.1'),
+            _prefRow('Version', 'v2.0.0'),
             _prefRow('Exercises', 'Floor-only, zero equipment'),
             _prefRow('Shield max', '2 shields'),
             _prefRow('Quiz', '10 questions/day · 2 lives'),
