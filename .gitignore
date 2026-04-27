@@ -1,46 +1,44 @@
-# ── Python ────────────────────────────────────────────────────────────
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.iml
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# iOS
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/.symlinks/
+
+# Desktop platforms (not needed for Android-only)
+linux/
+macos/
+windows/
+web/
+
+# Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
 *.pyd
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
 
-# ── Virtual environments ───────────────────────────────────────────────
-.venv/
-venv/
-env/
-ENV/
-
-# ── StreakFit data ─────────────────────────────────────────────────────
-# User database — never commit real user data
+# Secrets — NEVER commit these
+app.py.bak
 users.json
 
-# ── Flask / runtime ────────────────────────────────────────────────────
-instance/
-*.cfg
-flask_session/
-
-# ── OS junk ───────────────────────────────────────────────────────────
+# Logs & temp
+*.log
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# ── Editor / IDE ──────────────────────────────────────────────────────
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# ── Secrets ───────────────────────────────────────────────────────────
+# Environment
 .env
-.env.*
-secrets.json
-
-# ── Logs ──────────────────────────────────────────────────────────────
-*.log
-logs/

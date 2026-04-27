@@ -1,16 +1,51 @@
 """
 StreakFit — Calisthenics App v1
 Run:   python app.py
-Open:  http://localhost:5000
+Open:  http://192.168.18.219:5000
 """
 
 from flask import Flask, render_template, jsonify, request, session
 import json, os, datetime, hashlib, uuid, random, re
 
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = "streakfit_v1_xk92_secret"
-DATA_DIR   = os.path.dirname(os.path.abspath(__file__))
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
+
+# ─── SUPABASE / POSTGRES CONNECTION ───────────────────────────────────
+# Set DATABASE_URL as an environment variable on your server:
+#   Set your Supabase credentials below:
+import psycopg2, psycopg2.extras
+
+DB_HOST     = os.environ.get("DB_HOST", "aws-1-ap-northeast-1.pooler.supabase.com")
+DB_PORT     = int(os.environ.get("DB_PORT", 5432))
+DB_NAME     = os.environ.get("DB_NAME", "postgres")
+DB_USER     = os.environ.get("DB_USER", "postgres.rumuctuddairhwvohhno")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
+
+def _get_conn():
+    return psycopg2.connect(
+        host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
+        user=DB_USER, password=DB_PASSWORD,
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
+
+def _ensure_table():
+    """Create users table matching the Supabase schema."""
+    with _get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    email         TEXT PRIMARY KEY,
+                    password_hash TEXT NOT NULL,
+                    data          JSONB NOT NULL DEFAULT '{}'
+                )
+            """)
+        conn.commit()
+
+# Ensure DB table exists on startup
+_ensure_table()
 
 # ─── ECONOMY ──────────────────────────────────────────────────────────
 GEMS_PER_WORKOUT   = 10
@@ -341,27 +376,101 @@ WORKOUTS = {
 
 # ─── HELPERS ──────────────────────────────────────────────────────────
 def load_users():
-    if os.path.exists(USERS_FILE):
-        try:
-            with open(USERS_FILE) as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
+    """Return {email: user_data_dict} for all users."""
+    try:
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT email, password_hash, data FROM users;")
+                rows = cur.fetchall()
+                users = {}
+                for row in rows:
+                    email = row["email"]
+                    ph    = row["password_hash"]
+                    data  = row["data"]
+                    if isinstance(data, str):
+                        try: data = json.loads(data)
+                        except: data = {}
+                    if not isinstance(data, dict):
+                        data = {}
+                    # Inject password_hash back into data so login can compare
+                    data["_pw_hash"] = ph
+                    users[email] = data
+                return users
+    except Exception as e:
+        print("❌ load_users error:", e)
+        return {}
+
+def load_user(email):
+    """Load a single user by email. Returns data dict or None."""
+    try:
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT password_hash, data FROM users WHERE email = %s",
+                    (email,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    return None
+                data = row["data"]
+                if isinstance(data, str):
+                    try: data = json.loads(data)
+                    except: data = {}
+                if not isinstance(data, dict):
+                    data = {}
+                data["_pw_hash"] = row["password_hash"]
+                return data
+    except Exception as e:
+        print(f"❌ load_user error: {e}")
+        return None
 
 def save_users(u):
-    with open(USERS_FILE, "w") as f:
-        json.dump(u, f, indent=2)
+    """Upsert all users — kept for compatibility but use save_user for speed."""
+    try:
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                for email, data in u.items():
+                    ph = data.pop("_pw_hash", data.get("pw", ""))
+                    cur.execute("""
+                        INSERT INTO users (email, password_hash, data)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (email) DO UPDATE
+                          SET password_hash = EXCLUDED.password_hash,
+                              data = EXCLUDED.data
+                    """, (email, ph, json.dumps(data)))
+            conn.commit()
+    except Exception as e:
+        print(f"[DB] save_users error: {e}")
+
+def save_user(email, data):
+    """Upsert a single user row — password_hash stored separately."""
+    try:
+        # Pull password hash out of data dict (don't store it twice in JSONB)
+        save_data = {k: v for k, v in data.items() if k not in ("_pw_hash",)}
+        ph = data.get("_pw_hash") or data.get("pw") or ""
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO users (email, password_hash, data)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (email) DO UPDATE
+                      SET password_hash = EXCLUDED.password_hash,
+                          data = EXCLUDED.data
+                """, (email, ph, json.dumps(save_data)))
+            conn.commit()
+    except Exception as e:
+        print(f"[DB] save_user error: {e}")
 
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
 def cur_user():
-    uid = session.get("uid")
+    """Return (email, user_dict) for the current session user."""
+    uid = session.get("uid")   # uid is stored as email
     if not uid:
         return None, None
-    users = load_users()
-    return uid, users.get(uid)
+    u = load_user(uid)
+    return uid, u
 
 def week_key():
     d = datetime.date.today()
@@ -415,7 +524,8 @@ def refresh_streak(user):
 
 def new_user(uid, email, name, pw, metrics=None):
     return {
-        "id":uid,"email":email,"name":name,"pw":hash_pw(pw),
+        "id":uid,"email":email,"name":name,
+        "pw":hash_pw(pw),"_pw_hash":hash_pw(pw),
         "setup":False,"days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
         "streak":0,"best_streak":0,"streak_at_risk":False,"streak_broken":False,
         "gems":0,"shields":0,"purchased_programs":[],
@@ -445,9 +555,6 @@ def signup():
         return jsonify({"error":"Name, email and password are required"}), 400
     if len(pw) < 6:
         return jsonify({"error":"Password must be at least 6 characters"}), 400
-    users = load_users()
-    if any(u["email"]==email for u in users.values()):
-        return jsonify({"error":"Email already registered"}), 409
     uid = str(uuid.uuid4())
     metrics = {
         "weight_kg": float(weight) if weight else None,
@@ -459,9 +566,12 @@ def signup():
     # Seed weight log if weight given
     if metrics["weight_kg"]:
         u["weight_log"].append({"date":today_str(),"weight_kg":metrics["weight_kg"],"kcal":0,"kg_change":0})
-    users[uid] = u
-    save_users(users)
-    session["uid"] = uid
+    # Check if email already registered
+    if load_user(email):
+        return jsonify({"error":"Email already registered"}), 409
+    # Use EMAIL as the session key (not uid) — consistent with cur_user
+    save_user(email, u)
+    session["uid"] = email
     return jsonify({"ok":True,"name":name})
 
 @app.route("/api/auth/login", methods=["POST"])
@@ -469,20 +579,24 @@ def login():
     b = request.json or {}
     email = (b.get("email") or "").strip().lower()
     pw    = b.get("pw") or ""
-    users = load_users()
-    for uid, u in users.items():
-        stored_pw = u.get("pw") or u.get("password") or ""
-        if u["email"]==email and stored_pw==hash_pw(pw):
-            session["uid"] = uid
-            wk = week_key()
-            if u.get("last_week") != wk:
-                u = check_streak(u)
-                u["week_done"] = {}
-                u["last_week"] = wk
-                users[uid] = u
-                save_users(users)
-            return jsonify({"ok":True,"name":u["name"],"setup":u.get("setup",False)})
-    return jsonify({"error":"Invalid email or password"}), 401
+    if not email or not pw:
+        return jsonify({"error":"Email and password are required"}), 400
+    u = load_user(email)
+    if not u:
+        return jsonify({"error":"Invalid email or password"}), 401
+    stored_pw = u.get("_pw_hash") or u.get("pw") or ""
+    if stored_pw != hash_pw(pw):
+        return jsonify({"error":"Invalid email or password"}), 401
+    # Session uid = email
+    session["uid"] = email
+    # Week rollover
+    wk = week_key()
+    if u.get("last_week") != wk:
+        u = check_streak(u)
+        u["week_done"] = {}
+        u["last_week"] = wk
+        save_user(email, u)
+    return jsonify({"ok":True,"name":u["name"],"setup":u.get("setup",False)})
 
 @app.route("/api/auth/logout", methods=["POST"])
 def logout():
@@ -493,8 +607,8 @@ def logout():
 def me():
     uid, u = cur_user()
     if not u:
-        return jsonify({"logged_in":False})
-    return jsonify({"logged_in":True,"name":u["name"],"email":u["email"],"setup":u.get("setup",False)})
+        return jsonify({"error":"Not logged in"}), 401
+    return jsonify({"logged_in":True,"name":u.get("name",""),"email":uid,"setup":u.get("setup",False)})
 
 # ─── MAIN ─────────────────────────────────────────────────────────────
 @app.route("/")
@@ -527,7 +641,7 @@ def state():
         changed = True
     if changed:
         users[uid] = u
-        save_users(users)
+        save_user(uid, u)
     # Ensure streak_broken field is always present
     u.setdefault("streak_broken", False)
     safe = {k:v for k,v in u.items() if k not in ("pw",)}
@@ -558,7 +672,7 @@ def setup():
     u["plan"] = [g[i%len(g)] for i in range(b["days_per_week"])]
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True})
 
 @app.route("/api/profile", methods=["POST"])
@@ -575,7 +689,7 @@ def profile():
     if g: u["plan"] = [g[i%len(g)] for i in range(u["days_per_week"])]
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True})
 
 @app.route("/api/settings", methods=["POST"])
@@ -589,7 +703,7 @@ def settings():
     if "vibration" in b: u["settings"]["vibration"] = bool(b["vibration"])
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"settings":u["settings"]})
 
 @app.route("/api/metrics", methods=["POST"])
@@ -615,7 +729,7 @@ def metrics():
             ex["weight_kg"] = m["weight_kg"]
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"metrics":m})
 
 @app.route("/api/weight_log")
@@ -681,9 +795,13 @@ def today_workout():
     # Always return the regular plan workout + optional program_extra
     plan = u.get("plan",[])
     if not plan:
-        return jsonify({"error":"No plan"}), 400
+        # Fallback: use chest as default so app never shows empty
+        plan = ["chest", "back", "legs", "core", "shoulders", "full"]
     group = plan[dow % len(plan)]
     exs   = apply_intensity(WORKOUTS.get(group,[]), intens)
+    if not exs:
+        # If group has no exercises, try chest
+        exs = apply_intensity(WORKOUTS.get("chest",[]), intens)
     return jsonify({
         "group":group,"exercises":exs,"done_today":done_today,"dow":dow,
         "intensity":intens,"days_done":len(u.get("week_done",{})),
@@ -743,6 +861,8 @@ def complete():
     td = today_str()
     already_done_today = u.get("last_workout_date") == td
 
+    is_program = b.get("is_program", False)
+
     if is_bonus:
         gems_earned = GEMS_PER_WORKOUT
         u["gems"] = u.get("gems",0) + gems_earned
@@ -787,7 +907,7 @@ def complete():
     })
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({
         "streak":u["streak"],"best_streak":u["best_streak"],
         "gems":u["gems"],"gems_earned":gems_earned,
@@ -811,7 +931,7 @@ def bonus_unlock():
         u["gems"] -= BONUS_COST
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"gems":u.get("gems",0)})
 
 # ─── QUIZ ──────────────────────────────────────────────────────────────
@@ -841,7 +961,7 @@ def quiz_today():
         u["quiz_done_date"] = None
         users = load_users()
         users[uid] = u
-        save_users(users)
+        save_user(uid, u)
 
     done      = u.get("quiz_done_date") == td
     lives     = u.get("quiz_lives", QUIZ_LIVES)
@@ -913,7 +1033,7 @@ def quiz_answer():
 
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     num_done  = len(u.get("quiz_session",[]))
     total     = len(order)
     session_done = u.get("quiz_done_date") == td
@@ -938,7 +1058,7 @@ def quiz_revive():
     u["quiz_done_date"]  = None   # allow continuing after revive
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"lives":QUIZ_LIVES,"gems":u.get("gems",0)})
 
 # ─── STREAK RESOLVE ────────────────────────────────────────────────────
@@ -980,7 +1100,7 @@ def streak_resolve():
         u["last_workout_date"] = None
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({
         "ok":True,
         "streak":u["streak"],
@@ -1003,7 +1123,7 @@ def buy_shield():
     u["shields"] = u.get("shields",0)+1
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"gems":u["gems"],"shields":u["shields"]})
 
 @app.route("/api/gems/use_shield", methods=["POST"])
@@ -1018,7 +1138,7 @@ def use_shield():
     # Streak is preserved but NOT incremented — shield just protects it
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"streak":u["streak"],"shields":u["shields"]})
 
 @app.route("/api/gems/purchase", methods=["POST"])
@@ -1032,7 +1152,7 @@ def purchase():
     u["gems"] = u.get("gems",0) + pkg["gems"]
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"gems":u["gems"],"gems_added":pkg["gems"],"package":pkg["label"]})
 
 PROGRAM_ACCESS_DAYS = 7   # 1-week access per purchase
@@ -1059,7 +1179,7 @@ def purchase_program():
     u["program_access"] = access
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     days_remaining = PROGRAM_ACCESS_DAYS
     return jsonify({"ok":True,"gems":u["gems"],"program_id":prog_id,
                     "expiry":expiry,"days_remaining":days_remaining})
@@ -1179,7 +1299,7 @@ def store_watch_ad():
     u["gems"] = u.get("gems",0) + AD_GEMS_REWARD
     users = load_users()
     users[uid] = u
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True,"gems":u["gems"],"gems_earned":AD_GEMS_REWARD})
 
 @app.route("/api/reset", methods=["POST"])
@@ -1195,12 +1315,14 @@ def reset():
         "quiz_done_date":None,"quiz_lives":QUIZ_LIVES,"quiz_lives_date":None,"bonus_date":None,"week_reward_claimed":None,"ad_gems_date":None,"purchased_programs":[],"program_access":{},"active_program":None,
         "weight_log":[],"metrics":{"weight_kg":None,"height_cm":None,"age":None,"gender":"male"},
     })
-    save_users(users)
+    save_user(uid, u)
     return jsonify({"ok":True})
 
 if __name__ == "__main__":
     print("\n🏋️  StreakFit Calisthenics App v1")
     print("━"*38)
-    print("▶  http://localhost:5000")
+    print("▶  http://192.168.18.219:5000")
     print("━"*38+"\n")
-    app.run(debug=True, port=5000)
+    app.run(host="192.168.18.219", port=5000, debug=True)
+
+# flask --app app.py run --host=192.168.18.219 --port=5000
