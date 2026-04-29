@@ -205,6 +205,104 @@ void haptic([bool heavy = false]) {
 // ════════════════════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// LOADING OVERLAY HELPER
+// ═══════════════════════════════════════════════════════════════
+void showLoading(BuildContext ctx, {String msg = 'Loading...'}) {
+  showDialog(
+    context: ctx,
+    barrierDismissible: false,
+    barrierColor: Colors.black54,
+    builder: (_) => Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+        decoration: BoxDecoration(
+          color: s1,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: bd),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 36,
+              height: 36,
+              child: CircularProgressIndicator(strokeWidth: 3, color: accent),
+            ),
+            const SizedBox(height: 14),
+            Text(msg, style: const TextStyle(color: fg, fontSize: 13)),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void hideLoading(BuildContext ctx) {
+  if (ctx.mounted) Navigator.of(ctx, rootNavigator: true).pop();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CUSTOM TOAST (replaces all SnackBars)
+// ═══════════════════════════════════════════════════════════════
+OverlayEntry? _toastEntry;
+void showToast(
+  BuildContext ctx,
+  String msg, {
+  bool error = false,
+  bool success = false,
+}) {
+  _toastEntry?.remove();
+  final Color bg_ = error
+      ? danger
+      : success
+      ? safe
+      : s2;
+  final Color fg_ = error || success ? Colors.white : fg;
+  final String prefix = error
+      ? '✕  '
+      : success
+      ? '✓  '
+      : '';
+  _toastEntry = OverlayEntry(
+    builder: (_) => Positioned(
+      bottom: 90,
+      left: 20,
+      right: 20,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: bg_,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: fg_.withValues(alpha: 0.2)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: Text(
+            '$prefix$msg',
+            style: TextStyle(
+              color: fg_,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  Overlay.of(ctx).insert(_toastEntry!);
+  Future.delayed(const Duration(milliseconds: 2500), () {
+    _toastEntry?.remove();
+    _toastEntry = null;
+  });
+}
+
 Color hexColor(String h) {
   try {
     return Color(int.parse(h.replaceAll('#', '0xFF')));
@@ -816,8 +914,10 @@ class _AuthState extends State<AuthScreen> with SingleTickerProviderStateMixin {
       _lerr = '';
       _busy = true;
     });
+    showLoading(context, msg: 'Signing in...');
     final r = await Api.login(_le.text.trim(), _lp.text);
     if (!mounted) return;
+    hideLoading(context);
     setState(() => _busy = false);
     if (r['error'] != null) {
       setState(() => _lerr = r['error']);
@@ -847,8 +947,10 @@ class _AuthState extends State<AuthScreen> with SingleTickerProviderStateMixin {
       return;
     }
     setState(() => _busy = true);
+    showLoading(context, msg: 'Creating account...');
     final r = await Api.signup(_sn.text.trim(), _se.text.trim(), _sp.text);
     if (!mounted) return;
+    hideLoading(context);
     setState(() => _busy = false);
     if (r['error'] != null) {
       setState(() => _serr = r['error']);
@@ -1080,6 +1182,7 @@ class _SetupState extends State<SetupScreen> {
   Future<void> _submit() async {
     if (!_validateStep()) return;
     setState(() => _busy = true);
+    showLoading(context, msg: 'Setting up your plan...');
     final r = await Api.setup({
       'days_per_week': _days,
       'muscle_groups': _muscles.toList(),
@@ -1090,8 +1193,12 @@ class _SetupState extends State<SetupScreen> {
       'gender': _gender,
     });
     if (!mounted) return;
+    hideLoading(context);
     setState(() => _busy = false);
-    if (r['error'] != null) return;
+    if (r['error'] != null) {
+      setState(() => _setupErr = r['error'].toString());
+      return;
+    }
     await context.read<AppState>().load();
     if (mounted) Navigator.pushReplacementNamed(context, '/home');
   }
@@ -1432,25 +1539,6 @@ class _SetupState extends State<SetupScreen> {
                   ),
                 ),
               ),
-            if (_setupErr.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: danger.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: danger.withValues(alpha: 0.4)),
-                  ),
-                  child: Text(
-                    _setupErr,
-                    style: const TextStyle(color: danger, fontSize: 12),
-                  ),
-                ),
-              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: Row(
@@ -1576,6 +1664,7 @@ class _HomeShellState extends State<HomeShell> {
                 const QuizScreen(),
                 const ProgramsScreen(),
                 const StoreScreen(),
+                const AiCoachScreen(),
                 const ProfileScreen(),
               ],
             ),
@@ -1611,6 +1700,10 @@ class _HomeShellState extends State<HomeShell> {
             BottomNavigationBarItem(
               icon: Text('💎', style: TextStyle(fontSize: 20)),
               label: 'Store',
+            ),
+            BottomNavigationBarItem(
+              icon: Text('🤖', style: TextStyle(fontSize: 20)),
+              label: 'Coach',
             ),
             BottomNavigationBarItem(
               icon: Text('◉', style: TextStyle(fontSize: 20)),
@@ -1732,7 +1825,8 @@ class _TodayState extends State<TodayScreen> {
     final data = context.read<AppState>().data;
     final access = data['program_access'];
     final refresh = data['_refresh']?.toString() ?? '';
-    final key = (access?.toString() ?? '') + refresh;
+    final ap = data['active_program']?.toString() ?? '';
+    final key = (access?.toString() ?? '') + refresh + ap;
     if (key != _lastAccessKey && _lastAccessKey.isNotEmpty) {
       _lastAccessKey = key;
       _load();
@@ -2007,6 +2101,42 @@ class _TodayState extends State<TodayScreen> {
     );
   }
 
+  // Shared unlock + launch logic for both gems and ad bonus
+  Future<void> _doBonus(String method, String group) async {
+    if (!mounted) return;
+    // Show loading snackbar immediately so user knows it's working
+    showToast(context, 'Unlocking bonus workout...');
+    // Run both API calls in parallel for speed
+    final results = await Future.wait([
+      Api.unlockBonus(method),
+      Api.bonusExercises(group),
+    ]);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    final r = results[0];
+    final er = results[1];
+    if (r['error'] != null) {
+      showToast(context, r['error'].toString(), error: true);
+      return;
+    }
+    // Patch gems immediately
+    if (r['gems'] != null) context.read<AppState>().patch({'gems': r['gems']});
+    final exs = List<Map<String, dynamic>>.from(er['exercises'] ?? []);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkoutScreen(
+          exercises: exs,
+          group: group,
+          isBonus: true,
+          isProgram: false,
+        ),
+      ),
+    );
+    _load();
+    if (mounted) context.read<AppState>().load();
+  }
+
   Future<void> _openBonus() async {
     final groups = ['chest', 'back', 'legs', 'core', 'shoulders', 'full'];
     String? chosen;
@@ -2023,12 +2153,13 @@ class _TodayState extends State<TodayScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Bonus Workout', style: heading(22)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               const Text(
-                '40 💎 · Extra session, different exercises',
+                'Extra session, different exercises',
                 style: TextStyle(color: mid, fontSize: 12),
               ),
               const SizedBox(height: 16),
+              // Muscle group picker
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -2055,11 +2186,13 @@ class _TodayState extends State<TodayScreen> {
                 }).toList(),
               ),
               const SizedBox(height: 16),
+              // Unlock with Gems
               ElevatedButton(
                 onPressed: chosen == null
                     ? null
                     : () async {
                         Navigator.pop(ctx2);
+                        if (!mounted) return;
                         final ok2 = await confirm(
                           context,
                           emoji: '🔥',
@@ -2067,36 +2200,40 @@ class _TodayState extends State<TodayScreen> {
                           desc: 'Spend 40 💎 for a bonus session?',
                         );
                         if (!ok2 || !mounted) return;
-                        final r = await Api.unlockBonus('gems');
-                        if (r['error'] != null && mounted) {
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text(r['error'])));
-                          return;
-                        }
-                        final er = await Api.bonusExercises(chosen!);
-                        if (!mounted) return;
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => WorkoutScreen(
-                              exercises: List<Map<String, dynamic>>.from(
-                                er['exercises'] ?? [],
-                              ),
-                              group: chosen!,
-                              isBonus: true,
-                              isProgram: false,
-                            ),
-                          ),
-                        );
-                        _load();
+                        await _doBonus('gems', chosen!);
                       },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 46),
                   backgroundColor: gem,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Unlock with 💎 Gems'),
+                child: const Text('💎 Unlock with 40 Gems'),
+              ),
+              const SizedBox(height: 8),
+              // Unlock by watching an ad
+              OutlinedButton(
+                onPressed: chosen == null
+                    ? null
+                    : () async {
+                        Navigator.pop(ctx2);
+                        if (!mounted) return;
+                        final ok2 = await confirm(
+                          context,
+                          emoji: '📺',
+                          title: 'Watch Ad',
+                          desc: 'Watch a short ad to unlock a bonus session?',
+                        );
+                        if (!ok2 || !mounted) return;
+                        await _doBonus('ad', chosen!);
+                      },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 46),
+                  side: const BorderSide(color: warn),
+                ),
+                child: const Text(
+                  '📺 Watch Ad to Unlock',
+                  style: TextStyle(color: warn),
+                ),
               ),
               const SizedBox(height: 8),
               OutlinedButton(
@@ -2190,9 +2327,40 @@ class _WorkoutState extends State<WorkoutScreen> {
     if (_finishing) return;
     _timer?.cancel();
     setState(() => _finishing = true);
-    sndStart(); // fanfare on workout complete
+    sndStart();
     haptic(true);
-    await Future.delayed(const Duration(milliseconds: 400));
+    // Show loading overlay immediately — user sees feedback right away
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black54,
+        builder: (_) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: s1,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Saving workout...', style: heading(16, c: fg)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final r = await Api.completeWorkout({
       'group': widget.group,
       'exercises': widget.exercises.length,
@@ -2201,7 +2369,9 @@ class _WorkoutState extends State<WorkoutScreen> {
       'is_program': widget.isProgram,
     });
     if (!mounted) return;
-    // Update HUD immediately so streak/gems show new values
+    // Close loading overlay
+    Navigator.of(context, rootNavigator: true).pop();
+    // Update HUD immediately
     if (r['error'] == null) {
       context.read<AppState>().patch({
         'streak': r['streak'] ?? 0,
@@ -3142,12 +3312,10 @@ class _ProgramsState extends State<ProgramsScreen> {
                             ElevatedButton(
                               onPressed: () async {
                                 if (gems < (p['cost'] as int)) {
-                                  ScaffoldMessenger.of(ctx).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Need ${p['cost']} 💎 — you have $gems',
-                                      ),
-                                    ),
+                                  showToast(
+                                    ctx,
+                                    'Need \${p[\'cost\']} 💎 — you have \$gems',
+                                    error: true,
                                   );
                                   return;
                                 }
@@ -3159,11 +3327,24 @@ class _ProgramsState extends State<ProgramsScreen> {
                                   tagline: p['tagline'] as String? ?? '',
                                 );
                                 if (!ok || !ctx.mounted) return;
+                                showDialog(
+                                  context: ctx,
+                                  barrierDismissible: false,
+                                  barrierColor: Colors.black45,
+                                  builder: (_) => const Center(
+                                    child: CircularProgressIndicator(
+                                      color: accent,
+                                    ),
+                                  ),
+                                );
                                 final r = await Api.purchaseProgram(id);
                                 if (!ctx.mounted) return;
+                                Navigator.of(ctx, rootNavigator: true).pop();
                                 if (r['error'] != null) {
-                                  ScaffoldMessenger.of(ctx).showSnackBar(
-                                    SnackBar(content: Text(r['error'])),
+                                  showToast(
+                                    ctx,
+                                    r['error'].toString(),
+                                    error: true,
                                   );
                                   return;
                                 }
@@ -3209,174 +3390,276 @@ class _ProgramsState extends State<ProgramsScreen> {
                 ),
                 if (isOpen) ...[
                   const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: works.map((w) {
-                        final wNum = w['week'] as int;
-                        final isThisActive =
-                            apList is List &&
-                            apList.any(
-                              (x) => x['id'] == id && x['week'] == wNum,
-                            );
-                        final exs = List<String>.from(w['exercises'] ?? []);
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: bg,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isThisActive ? col : bd,
-                              width: isThisActive ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Week $wNum${isThisActive ? ' ✓' : ''}',
-                                            style: TextStyle(
-                                              color: isThisActive ? col : fg,
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          Text(
-                                            w['focus'] ?? '',
-                                            style: const TextStyle(
-                                              color: dim,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                  Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          children: works.map((w) {
+                            final wNum = w['week'] as int;
+                            final isThisActive =
+                                apList is List &&
+                                apList.any(
+                                  (x) => x['id'] == id && x['week'] == wNum,
+                                );
+                            final exs = List<String>.from(w['exercises'] ?? []);
+                            return Stack(
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  decoration: BoxDecoration(
+                                    color: bg,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isThisActive ? col : bd,
+                                      width: isThisActive ? 1.5 : 1,
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const Divider(height: 1),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  14,
-                                  10,
-                                  14,
-                                  14,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ...exs.map(
-                                      (e) => Padding(
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          vertical: 3,
+                                          horizontal: 14,
+                                          vertical: 12,
                                         ),
                                         child: Row(
                                           children: [
-                                            const Text(
-                                              '• ',
-                                              style: TextStyle(
-                                                color: dim,
-                                                fontSize: 10,
-                                              ),
-                                            ),
                                             Expanded(
-                                              child: Text(
-                                                e,
-                                                style: const TextStyle(
-                                                  color: mid,
-                                                  fontSize: 11,
-                                                ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Week $wNum${isThisActive ? ' ✓' : ''}',
+                                                    style: TextStyle(
+                                                      color: isThisActive
+                                                          ? col
+                                                          : fg,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    w['focus'] ?? '',
+                                                    style: const TextStyle(
+                                                      color: dim,
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    if (active)
-                                      ElevatedButton(
-                                        onPressed: isThisActive
-                                            ? null
-                                            : () async {
-                                                final r =
-                                                    await Api.activateProgram(
-                                                      id,
-                                                      wNum,
-                                                    );
-                                                if (!ctx.mounted) return;
-                                                if (r['error'] != null) {
-                                                  ScaffoldMessenger.of(
-                                                    ctx,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(r['error']),
-                                                    ),
-                                                  );
-                                                  return;
-                                                }
-                                                // Instantly patch active_program
-                                                if (r['active_program'] !=
-                                                    null) {
-                                                  ctx.read<AppState>().patch({
-                                                    'active_program':
-                                                        r['active_program'],
-                                                  });
-                                                } else {
-                                                  ctx.read<AppState>().load();
-                                                }
-                                                sndGem();
-                                                if (ctx.mounted)
-                                                  ScaffoldMessenger.of(
-                                                    ctx,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        '🏠 Week $wNum set! Check your Today tab.',
-                                                      ),
-                                                      backgroundColor: s1,
-                                                    ),
-                                                  );
-                                              },
-                                        style: ElevatedButton.styleFrom(
-                                          minimumSize: const Size(
-                                            double.infinity,
-                                            40,
-                                          ),
-                                          backgroundColor: isThisActive
-                                              ? s2
-                                              : col,
-                                          foregroundColor: isThisActive
-                                              ? mid
-                                              : bg,
-                                          disabledBackgroundColor: s2,
-                                          disabledForegroundColor: mid,
+                                      const Divider(height: 1),
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          14,
+                                          10,
+                                          14,
+                                          14,
                                         ),
-                                        child: Text(
-                                          isThisActive
-                                              ? '✓ Currently Active'
-                                              : 'Set Week $wNum as Today →',
-                                          style: const TextStyle(fontSize: 12),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            ...exs.map(
+                                              (e) => Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 3,
+                                                    ),
+                                                child: Row(
+                                                  children: [
+                                                    const Text(
+                                                      '• ',
+                                                      style: TextStyle(
+                                                        color: dim,
+                                                        fontSize: 10,
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      child: Text(
+                                                        e,
+                                                        style: const TextStyle(
+                                                          color: mid,
+                                                          fontSize: 11,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            if (active)
+                                              ElevatedButton(
+                                                onPressed: isThisActive
+                                                    ? null
+                                                    : () async {
+                                                        // Optimistic UI: patch immediately so button shows active at once
+                                                        final currentAp = ctx
+                                                            .read<AppState>()
+                                                            .data['active_program'];
+                                                        List newAp;
+                                                        if (currentAp is List) {
+                                                          newAp = currentAp
+                                                              .where(
+                                                                (x) =>
+                                                                    x['id'] !=
+                                                                    id,
+                                                              )
+                                                              .toList();
+                                                        } else {
+                                                          newAp = [];
+                                                        }
+                                                        newAp.add({
+                                                          'id': id,
+                                                          'week': wNum,
+                                                        });
+                                                        ctx
+                                                            .read<AppState>()
+                                                            .patch({
+                                                              'active_program':
+                                                                  newAp,
+                                                            });
+                                                        sndGem();
+                                                        // Then confirm with server in background
+                                                        showDialog(
+                                                          context: ctx,
+                                                          barrierDismissible:
+                                                              false,
+                                                          barrierColor:
+                                                              Colors.black45,
+                                                          builder: (_) =>
+                                                              const Center(
+                                                                child:
+                                                                    CircularProgressIndicator(
+                                                                      color:
+                                                                          accent,
+                                                                    ),
+                                                              ),
+                                                        );
+                                                        final r =
+                                                            await Api.activateProgram(
+                                                              id,
+                                                              wNum,
+                                                            );
+                                                        if (!ctx.mounted)
+                                                          return;
+                                                        Navigator.of(
+                                                          ctx,
+                                                          rootNavigator: true,
+                                                        ).pop();
+                                                        if (r['error'] !=
+                                                            null) {
+                                                          // Revert optimistic update on error
+                                                          ctx
+                                                              .read<AppState>()
+                                                              .load();
+                                                          showToast(
+                                                            ctx,
+                                                            r['error']
+                                                                .toString(),
+                                                            error: true,
+                                                          );
+                                                          return;
+                                                        }
+                                                        if (r['active_program'] !=
+                                                            null) {
+                                                          ctx
+                                                              .read<AppState>()
+                                                              .patch({
+                                                                'active_program':
+                                                                    r['active_program'],
+                                                              });
+                                                        }
+                                                        if (ctx.mounted)
+                                                          showToast(
+                                                            ctx,
+                                                            'Week \$wNum set in Today tab!',
+                                                            success: true,
+                                                          );
+                                                      },
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(
+                                                    double.infinity,
+                                                    40,
+                                                  ),
+                                                  backgroundColor: isThisActive
+                                                      ? s2
+                                                      : col,
+                                                  foregroundColor: isThisActive
+                                                      ? mid
+                                                      : bg,
+                                                  disabledBackgroundColor: s2,
+                                                  disabledForegroundColor: mid,
+                                                ),
+                                                child: Text(
+                                                  isThisActive
+                                                      ? '✓ Currently Active'
+                                                      : 'Set Week $wNum as Today →',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
+                                // 🔒 Blur overlay for non-purchased programs
+                                if (!active)
+                                  Positioned.fill(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        color: bg.withValues(alpha: 0.82),
+                                        child: const Center(
+                                          child: Text(
+                                            '🔒',
+                                            style: TextStyle(fontSize: 22),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      // Blur overlay when program not purchased
+                      if (!active)
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(12),
+                            ),
+                            child: Container(
+                              color: bg.withValues(alpha: 0.88),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    '🔒',
+                                    style: TextStyle(fontSize: 28),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Purchase to unlock full details',
+                                    style: TextStyle(color: mid, fontSize: 12),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        );
-                      }).toList(),
-                    ),
+                        ),
+                    ],
                   ),
                 ],
               ],
@@ -3485,17 +3768,25 @@ class _StoreState extends State<StoreScreen>
                             label: pkg['label'],
                           );
                           if (!ok || !ctx.mounted) return;
+                          // Show loading immediately
+                          showDialog(
+                            context: ctx,
+                            barrierDismissible: false,
+                            barrierColor: Colors.black45,
+                            builder: (_) => const Center(
+                              child: CircularProgressIndicator(color: gem),
+                            ),
+                          );
                           final r = await Api.post('/api/gems/purchase', {
                             'package_id': pkg['id'],
                           });
                           if (!ctx.mounted) return;
+                          Navigator.of(ctx, rootNavigator: true).pop();
                           if (r['gems'] != null) {
                             ctx.read<AppState>().patch({'gems': r['gems']});
                             sndGem();
                           } else if (r['error'] != null) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text(r['error'].toString())),
-                            );
+                            showToast(ctx, r['error'].toString(), error: true);
                           }
                         },
                         child: Container(
@@ -3640,8 +3931,10 @@ class _StoreState extends State<StoreScreen>
                                   if (!ctx.mounted) return;
                                   setState(() => _buyingShield = false);
                                   if (r['error'] != null) {
-                                    ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(content: Text(r['error'])),
+                                    showToast(
+                                      ctx,
+                                      r['error'].toString(),
+                                      error: true,
                                     );
                                     return;
                                   }
@@ -3733,15 +4026,13 @@ class _StoreState extends State<StoreScreen>
                                       ctx.read<AppState>().patch({
                                         'gems': r['gems'],
                                       });
-                                    ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          r['error'] != null
-                                              ? r['error']
-                                              : '+30 💎 earned!',
-                                        ),
-                                        backgroundColor: s1,
-                                      ),
+                                    showToast(
+                                      ctx,
+                                      r['error'] != null
+                                          ? r['error'].toString()
+                                          : '+30 💎 earned!',
+                                      error: r['error'] != null,
+                                      success: r['error'] == null,
                                     );
                                   },
                             style: ElevatedButton.styleFrom(
@@ -3788,9 +4079,6 @@ class _StoreState extends State<StoreScreen>
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// PROFILE SCREEN
-// ════════════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════
 // SETTINGS SCREEN (opened from ⚙️ button — matches old HTML s-settings)
 // ════════════════════════════════════════════════════════════════════
@@ -3876,7 +4164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // About section
           _prefSec('About', [
-            _prefRow('Version', 'v2.0.0'),
+            _prefRow('Version', 'v2.1.0'),
             _prefRow('Exercises', 'Floor-only, zero equipment'),
             _prefRow('Shield max', '2 shields'),
             _prefRow('Quiz', '10 questions/day · 2 lives'),
@@ -3953,6 +4241,531 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text(label, style: const TextStyle(color: fg, fontSize: 13)),
         Text(val, style: const TextStyle(color: mid, fontSize: 12)),
       ],
+    ),
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// AI COACH SCREEN
+// ════════════════════════════════════════════════════════════════════
+class AiCoachScreen extends StatefulWidget {
+  const AiCoachScreen({super.key});
+  @override
+  State<AiCoachScreen> createState() => _AiCoachState();
+}
+
+class _ChatMessage {
+  final String role; // 'user' or 'assistant'
+  final String text;
+  _ChatMessage({required this.role, required this.text});
+}
+
+class _AiCoachState extends State<AiCoachScreen> {
+  final _ctrl = TextEditingController();
+  final _scroll = ScrollController();
+  final _messages = <_ChatMessage>[];
+  bool _loading = false;
+
+  // AI Coach calls your Flask backend which holds the Groq API key securely
+
+  static const _suggestions = [
+    'How do I build core strength?',
+    'Best warm-up before a workout?',
+    'How much protein do I need?',
+    'How to improve push-up form?',
+    'Tips for better sleep recovery?',
+    'How to stay motivated?',
+  ];
+
+  Future<void> _send(String text) async {
+    final msg = text.trim();
+    if (msg.isEmpty || _loading) return;
+    _ctrl.clear();
+    setState(() {
+      _messages.add(_ChatMessage(role: 'user', text: msg));
+      _loading = true;
+    });
+    _scrollToBottom();
+    try {
+      // Send full conversation history to Flask → Groq
+      final history = _messages
+          .map((m) => {'role': m.role, 'content': m.text})
+          .toList();
+      final r = await Api.post('/api/coach', {'messages': history});
+      if (!mounted) return;
+      if (r['error'] != null) {
+        setState(() {
+          _messages.add(
+            _ChatMessage(role: 'assistant', text: r['error'].toString()),
+          );
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _messages.add(
+            _ChatMessage(role: 'assistant', text: r['reply'] ?? 'No response.'),
+          );
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            role: 'assistant',
+            text:
+                'Could not reach server. Check your connection and try again.',
+          ),
+        );
+        _loading = false;
+      });
+    }
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Widget _proGate(BuildContext ctx) {
+    final gems = ctx.watch<AppState>().gems;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const SizedBox(height: 32),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: accent.withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: const Center(
+              child: Text('👑', style: TextStyle(fontSize: 38)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('StreakFit Pro', style: heading(30, c: accent)),
+          const SizedBox(height: 6),
+          const Text(
+            'Unlock your personal AI Fitness Coach',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: mid, fontSize: 13, height: 1.5),
+          ),
+          const SizedBox(height: 24),
+          ...const [
+            '🤖  AI Coach — ask anything about fitness & health',
+            '💬  Unlimited personalised advice',
+            '⚡  Powered by Llama 3.3 70B via Groq',
+            '🔓  30-day access · renew anytime',
+          ].map(
+            (f) => Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Text(f.substring(0, 2), style: TextStyle(fontSize: 18)),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      f.substring(3),
+                      style: TextStyle(color: fg, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          ElevatedButton(
+            onPressed: () async {
+              if (gems < 1000) {
+                showToast(ctx, 'Need 1000 💎 — you have \$gems', error: true);
+                return;
+              }
+              final ok = await confirm(
+                ctx,
+                emoji: '👑',
+                title: 'Go Pro?',
+                desc: '500 💎 · 30-day AI Coach access',
+              );
+              if (!ok || !ctx.mounted) return;
+              showDialog(
+                context: ctx,
+                barrierDismissible: false,
+                barrierColor: Colors.black45,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(color: accent),
+                ),
+              );
+              final r = await Api.post('/api/pro/subscribe', {
+                'method': 'gems',
+              });
+              if (!ctx.mounted) return;
+              Navigator.of(ctx, rootNavigator: true).pop();
+              if (r['error'] != null) {
+                showToast(ctx, r['error'].toString(), error: true);
+                return;
+              }
+              ctx.read<AppState>().patch({
+                'pro': true,
+                'pro_expiry': r['pro_expiry'],
+                'gems': r['gems'],
+              });
+              sndGem();
+            },
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+              backgroundColor: accent,
+              foregroundColor: bg,
+            ),
+            child: const Text('👑 Go Pro — 1000 💎 for 30 days'),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$gems 💎 available',
+            style: const TextStyle(color: dim, fontSize: 11),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: s2,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: bd),
+            ),
+            child: const Text(
+              'Earn gems by completing workouts, quizzes and watching ads.',
+              style: TextStyle(color: dim, fontSize: 11, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext ctx) {
+    final isPro = context.watch<AppState>().isPro;
+    if (!isPro) return _proGate(context);
+    return Column(
+      children: [
+        // ── Header ──────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          decoration: const BoxDecoration(
+            color: s1,
+            border: Border(bottom: BorderSide(color: bd)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: accent.withValues(alpha: 0.3)),
+                ),
+                child: const Center(
+                  child: Text('🤖', style: TextStyle(fontSize: 18)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('AI Coach', style: heading(20, c: accent)),
+                  const Text(
+                    'Health & Fitness only',
+                    style: TextStyle(color: dim, fontSize: 10),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // ── Messages ────────────────────────────────────────────────
+        Expanded(
+          child: _messages.isEmpty
+              ? _emptyState()
+              : ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _messages.length + (_loading ? 1 : 0),
+                  itemBuilder: (_, i) {
+                    if (i == _messages.length) return _typingIndicator();
+                    return _bubble(_messages[i]);
+                  },
+                ),
+        ),
+
+        // ── Input ───────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          decoration: const BoxDecoration(
+            color: s1,
+            border: Border(top: BorderSide(color: bd)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: _loading ? null : _send,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Ask about fitness, nutrition, recovery...',
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: const BorderSide(color: bd),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: const BorderSide(color: bd),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: const BorderSide(color: accent, width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _loading ? null : () => _send(_ctrl.text),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _loading ? s2 : accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: _loading
+                      ? const Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: dim,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, color: bg, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyState() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          const Text('🤖', style: TextStyle(fontSize: 56)),
+          const SizedBox(height: 14),
+          Text('Your AI Fitness Coach', style: heading(24, c: accent)),
+          const SizedBox(height: 6),
+          const Text(
+            'Ask me anything about fitness, exercise,\nnutrition, or health.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: mid, fontSize: 13, height: 1.5),
+          ),
+          const SizedBox(height: 24),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text('SUGGESTIONS', style: lbl),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _suggestions
+                .map(
+                  (s) => GestureDetector(
+                    onTap: () => _send(s),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: s2,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: bd),
+                      ),
+                      child: Text(
+                        s,
+                        style: const TextStyle(color: fg, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: warn.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: warn.withValues(alpha: 0.3)),
+            ),
+            child: const Text(
+              '⚠️ This AI coach gives general fitness guidance only. '
+              'Always consult a doctor before starting a new exercise program '
+              'or if you have health concerns.',
+              style: TextStyle(color: warn, fontSize: 10, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bubble(_ChatMessage m) {
+    final isUser = m.role == 'user';
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: 12,
+        left: isUser ? 48 : 0,
+        right: isUser ? 0 : 48,
+      ),
+      child: Row(
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isUser) ...[
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: accent.withValues(alpha: 0.3)),
+              ),
+              child: const Center(
+                child: Text('🤖', style: TextStyle(fontSize: 13)),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isUser ? accent.withValues(alpha: 0.12) : s2,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isUser ? 16 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 16),
+                ),
+                border: Border.all(
+                  color: isUser ? accent.withValues(alpha: 0.3) : bd,
+                ),
+              ),
+              child: Text(
+                m.text,
+                style: TextStyle(
+                  color: isUser ? accent : fg,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _typingIndicator() => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+            border: Border.all(color: accent.withValues(alpha: 0.3)),
+          ),
+          child: const Center(
+            child: Text('🤖', style: TextStyle(fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: s2,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: bd),
+          ),
+          child: Row(
+            children: [
+              _dot(0),
+              const SizedBox(width: 4),
+              _dot(150),
+              const SizedBox(width: 4),
+              _dot(300),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _dot(int delayMs) => TweenAnimationBuilder<double>(
+    tween: Tween(begin: 0.3, end: 1.0),
+    duration: const Duration(milliseconds: 600),
+    curve: Curves.easeInOut,
+    builder: (_, v, __) => Opacity(
+      opacity: v,
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: const BoxDecoration(color: mid, shape: BoxShape.circle),
+      ),
     ),
   );
 }
@@ -4442,12 +5255,7 @@ class _ProfileState extends State<ProfileScreen>
                 if (!ctx.mounted) return;
                 setState(() => _saving = false);
                 ctx.read<AppState>().load();
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(
-                    content: Text('✓ Metrics saved!'),
-                    backgroundColor: s1,
-                  ),
-                );
+                showToast(ctx, 'Metrics saved!', success: true);
               },
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 44),
@@ -4546,9 +5354,7 @@ class _ProfileState extends State<ProfileScreen>
           });
           if (!ctx.mounted) return;
           ctx.read<AppState>().load();
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(content: Text('✓ Saved!'), backgroundColor: s1),
-          );
+          showToast(ctx, 'Preferences saved!', success: true);
         },
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 44),

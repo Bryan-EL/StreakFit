@@ -30,6 +30,7 @@ class Api {
 
   static Map<String, String> get _headers => {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true', // required for ngrok free tier
     if (_cookie.isNotEmpty) 'Cookie': _cookie,
   };
 

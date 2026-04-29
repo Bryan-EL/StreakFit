@@ -10,6 +10,7 @@ class AppState extends ChangeNotifier {
   int get gems => (data['gems'] as int?) ?? 0;
   int get shields => (data['shields'] as int?) ?? 0;
   int get streak => (data['streak'] as int?) ?? 0;
+  bool get isPro => data['pro'] == true;
 
   Future<void> load() async {
     // Don't notify at start — avoids triggering a rebuild mid-flight

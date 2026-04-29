@@ -6,17 +6,18 @@ Open:  http://192.168.18.219:5000
 
 from flask import Flask, render_template, jsonify, request, session
 import json, os, datetime, hashlib, uuid, random, re
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "streakfit_v2_xk92_secret"
 
-# ─── SUPABASE / POSTGRES CONNECTION ───────────────────────────────────
-# Set DATABASE_URL as an environment variable on your server:
-#   Set your Supabase credentials below:
+# ─── SUPABASE / POSTGRES CONNECTION POOL ─────────────────────────────
+# Uses a persistent pool so we reuse connections instead of opening
+# a new TCP connection on every single request (was causing 300-800ms lag).
 import psycopg2, psycopg2.extras
+from psycopg2 import pool as pg_pool
 
 DB_HOST     = os.environ.get("DB_HOST", "aws-1-ap-northeast-1.pooler.supabase.com")
 DB_PORT     = int(os.environ.get("DB_PORT", 5432))
@@ -24,24 +25,62 @@ DB_NAME     = os.environ.get("DB_NAME", "postgres")
 DB_USER     = os.environ.get("DB_USER", "postgres.rumuctuddairhwvohhno")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
 
+# min=1 keeps one connection alive, max=5 allows bursts
+_pool = None
+
+def _get_pool():
+    global _pool
+    if _pool is None or _pool.closed:
+        _pool = pg_pool.ThreadedConnectionPool(
+            minconn=1, maxconn=5,
+            host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
+            user=DB_USER, password=DB_PASSWORD,
+            cursor_factory=psycopg2.extras.RealDictCursor,
+            connect_timeout=10,
+        )
+    return _pool
+
 def _get_conn():
-    return psycopg2.connect(
-        host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
-        user=DB_USER, password=DB_PASSWORD,
-        cursor_factory=psycopg2.extras.RealDictCursor
-    )
+    """Get a connection from the pool."""
+    return _get_pool().getconn()
+
+def _put_conn(conn):
+    """Return a connection to the pool."""
+    try:
+        _get_pool().putconn(conn)
+    except Exception:
+        pass
+
+class _Conn:
+    """Context manager that gets/puts pool connections."""
+    def __enter__(self):
+        self.conn = _get_conn()
+        return self.conn
+    def __exit__(self, *_):
+        try: self.conn.commit()
+        except Exception: pass
+        _put_conn(self.conn)
+
+def db():
+    """Use as: with db() as conn:"""
+    return _Conn()
 
 def _ensure_table():
-    """Create users table matching the Supabase schema."""
-    with _get_conn() as conn:
+    """Create users table if not exists — runs once on startup."""
+    with db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     email         TEXT PRIMARY KEY,
-                    password_hash TEXT NOT NULL,
+                    password_hash TEXT NOT NULL DEFAULT '',
                     data          JSONB NOT NULL DEFAULT '{}'
                 )
             """)
+            # Add password_hash column if upgrading from old schema
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT ''")
+            except Exception:
+                pass
         conn.commit()
 
 # Ensure DB table exists on startup
@@ -376,79 +415,44 @@ WORKOUTS = {
 
 # ─── HELPERS ──────────────────────────────────────────────────────────
 def load_users():
-    """Return {email: user_data_dict} for all users."""
+    """Load ALL users as a dict {email: data}."""
     try:
-        with _get_conn() as conn:
+        with db() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT email, password_hash, data FROM users;")
+                cur.execute("SELECT email, data FROM users")
                 rows = cur.fetchall()
                 users = {}
                 for row in rows:
-                    email = row["email"]
-                    ph    = row["password_hash"]
-                    data  = row["data"]
+                    data = row["data"]
                     if isinstance(data, str):
                         try: data = json.loads(data)
                         except: data = {}
-                    if not isinstance(data, dict):
-                        data = {}
-                    # Inject password_hash back into data so login can compare
-                    data["_pw_hash"] = ph
-                    users[email] = data
+                    if isinstance(data, dict):
+                        users[row["email"]] = data
                 return users
     except Exception as e:
-        print("❌ load_users error:", e)
+        print(f"[DB] load_users error: {e}")
         return {}
 
-def load_user(email):
-    """Load a single user by email. Returns data dict or None."""
-    try:
-        with _get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT password_hash, data FROM users WHERE email = %s",
-                    (email,)
-                )
-                row = cur.fetchone()
-                if not row:
-                    return None
-                data = row["data"]
-                if isinstance(data, str):
-                    try: data = json.loads(data)
-                    except: data = {}
-                if not isinstance(data, dict):
-                    data = {}
-                data["_pw_hash"] = row["password_hash"]
-                return data
-    except Exception as e:
-        print(f"❌ load_user error: {e}")
-        return None
-
 def save_users(u):
-    """Upsert all users — kept for compatibility but use save_user for speed."""
+    """Save ALL users — upserts each one."""
     try:
-        with _get_conn() as conn:
+        with db() as conn:
             with conn.cursor() as cur:
                 for email, data in u.items():
-                    ph = data.pop("_pw_hash", data.get("pw", ""))
                     cur.execute("""
-                        INSERT INTO users (email, password_hash, data)
-                        VALUES (%s, %s, %s)
-                        ON CONFLICT (email) DO UPDATE
-                          SET password_hash = EXCLUDED.password_hash,
-                              data = EXCLUDED.data
-                    """, (email, ph, json.dumps(data)))
+                        INSERT INTO users (email, data) VALUES (%s, %s)
+                        ON CONFLICT (email) DO UPDATE SET data = EXCLUDED.data
+                    """, (email, json.dumps(data)))
             conn.commit()
     except Exception as e:
         print(f"[DB] save_users error: {e}")
 
 def save_user(email, data):
-    """Upsert a single user row — password_hash stored separately."""
+    """Upsert a single user row."""
     try:
-        # Pull password hash out of data dict (don't store it twice in JSONB)
-        save_data = {k: v for k, v in data.items() if k not in ("_pw_hash",)}
-        ph = data.get("_pw_hash") or data.get("pw") or ""
-        with _get_conn() as conn:
+        ph = data.get("pw") or ""
+        with db() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO users (email, password_hash, data)
@@ -456,7 +460,7 @@ def save_user(email, data):
                     ON CONFLICT (email) DO UPDATE
                       SET password_hash = EXCLUDED.password_hash,
                           data = EXCLUDED.data
-                """, (email, ph, json.dumps(save_data)))
+                """, (email, ph, json.dumps(data)))
             conn.commit()
     except Exception as e:
         print(f"[DB] save_user error: {e}")
@@ -464,11 +468,26 @@ def save_user(email, data):
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
+def load_user(email):
+    """Load a single user by email."""
+    try:
+        with db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT data FROM users WHERE email = %s", (email,))
+                row = cur.fetchone()
+                if not row: return None
+                data = row["data"]
+                if isinstance(data, str):
+                    try: data = json.loads(data)
+                    except: return None
+                return data if isinstance(data, dict) else None
+    except Exception as e:
+        print(f"[DB] load_user error: {e}")
+        return None
+
 def cur_user():
-    """Return (email, user_dict) for the current session user."""
-    uid = session.get("uid")   # uid is stored as email
-    if not uid:
-        return None, None
+    uid = session.get("uid")  # uid = email
+    if not uid: return None, None
     u = load_user(uid)
     return uid, u
 
@@ -524,8 +543,7 @@ def refresh_streak(user):
 
 def new_user(uid, email, name, pw, metrics=None):
     return {
-        "id":uid,"email":email,"name":name,
-        "pw":hash_pw(pw),"_pw_hash":hash_pw(pw),
+        "id":uid,"email":email,"name":name,"pw":hash_pw(pw),
         "setup":False,"days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
         "streak":0,"best_streak":0,"streak_at_risk":False,"streak_broken":False,
         "gems":0,"shields":0,"purchased_programs":[],
@@ -555,6 +573,8 @@ def signup():
         return jsonify({"error":"Name, email and password are required"}), 400
     if len(pw) < 6:
         return jsonify({"error":"Password must be at least 6 characters"}), 400
+    if load_user(email):
+        return jsonify({"error":"Email already registered"}), 409
     uid = str(uuid.uuid4())
     metrics = {
         "weight_kg": float(weight) if weight else None,
@@ -566,10 +586,6 @@ def signup():
     # Seed weight log if weight given
     if metrics["weight_kg"]:
         u["weight_log"].append({"date":today_str(),"weight_kg":metrics["weight_kg"],"kcal":0,"kg_change":0})
-    # Check if email already registered
-    if load_user(email):
-        return jsonify({"error":"Email already registered"}), 409
-    # Use EMAIL as the session key (not uid) — consistent with cur_user
     save_user(email, u)
     session["uid"] = email
     return jsonify({"ok":True,"name":name})
@@ -579,17 +595,10 @@ def login():
     b = request.json or {}
     email = (b.get("email") or "").strip().lower()
     pw    = b.get("pw") or ""
-    if not email or not pw:
-        return jsonify({"error":"Email and password are required"}), 400
     u = load_user(email)
-    if not u:
+    if not u or hash_pw(pw) != (u.get("pw") or ""):
         return jsonify({"error":"Invalid email or password"}), 401
-    stored_pw = u.get("_pw_hash") or u.get("pw") or ""
-    if stored_pw != hash_pw(pw):
-        return jsonify({"error":"Invalid email or password"}), 401
-    # Session uid = email
     session["uid"] = email
-    # Week rollover
     wk = week_key()
     if u.get("last_week") != wk:
         u = check_streak(u)
@@ -607,8 +616,8 @@ def logout():
 def me():
     uid, u = cur_user()
     if not u:
-        return jsonify({"error":"Not logged in"}), 401
-    return jsonify({"logged_in":True,"name":u.get("name",""),"email":uid,"setup":u.get("setup",False)})
+        return jsonify({"logged_in":False})
+    return jsonify({"logged_in":True,"name":u["name"],"email":u["email"],"setup":u.get("setup",False)})
 
 # ─── MAIN ─────────────────────────────────────────────────────────────
 @app.route("/")
@@ -655,6 +664,8 @@ def state():
         "ad_gems_done": u.get("ad_gems_date") == td,
         "program_access": u.get("program_access", {}),
         "active_program": u.get("active_program"),
+        "pro": u.get("pro_expiry","") >= datetime.date.today().isoformat(),
+        "pro_expiry": u.get("pro_expiry"),
     })
     return jsonify(safe)
 
@@ -1177,12 +1188,21 @@ def purchase_program():
     expiry = (datetime.date.today() + datetime.timedelta(days=PROGRAM_ACCESS_DAYS - 1)).isoformat()
     access[prog_id] = expiry
     u["program_access"] = access
-    users = load_users()
-    users[uid] = u
+    # Auto-activate week 1 immediately after purchase
+    raw_ap = u.get("active_program")
+    if isinstance(raw_ap, list):
+        ap_list = [x for x in raw_ap if x.get("id") != prog_id]
+    elif isinstance(raw_ap, dict):
+        ap_list = [raw_ap] if raw_ap.get("id") != prog_id else []
+    else:
+        ap_list = []
+    ap_list.append({"id": prog_id, "week": 1})
+    u["active_program"] = ap_list
     save_user(uid, u)
     days_remaining = PROGRAM_ACCESS_DAYS
     return jsonify({"ok":True,"gems":u["gems"],"program_id":prog_id,
-                    "expiry":expiry,"days_remaining":days_remaining})
+                    "expiry":expiry,"days_remaining":days_remaining,
+                    "active_program":ap_list})
 
 @app.route("/api/programs/activate", methods=["POST"])
 def activate_program():
@@ -1302,6 +1322,109 @@ def store_watch_ad():
     save_user(uid, u)
     return jsonify({"ok":True,"gems":u["gems"],"gems_earned":AD_GEMS_REWARD})
 
+
+
+# ─── PRO SUBSCRIPTION ────────────────────────────────────────────────
+PRO_COST_GEMS = 1000   # cost in gems for 30-day pro access
+PRO_DAYS      = 30
+
+@app.route("/api/pro/subscribe", methods=["POST"])
+def pro_subscribe():
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    method = (request.json or {}).get("method", "gems")
+    # Check if already pro
+    now = datetime.date.today().isoformat()
+    if u.get("pro_expiry","") >= now:
+        return jsonify({"error":"Already a Pro member!"}), 400
+    if method == "gems":
+        if u.get("gems",0) < PRO_COST_GEMS:
+            return jsonify({"error":f"Need {PRO_COST_GEMS} gems. You have {u.get('gems',0)}"}), 400
+        u["gems"] -= PRO_COST_GEMS
+    expiry = (datetime.date.today() + datetime.timedelta(days=PRO_DAYS)).isoformat()
+    u["pro"] = True
+    u["pro_expiry"] = expiry
+    save_user(uid, u)
+    return jsonify({"ok":True,"pro":True,"pro_expiry":expiry,"gems":u["gems"]})
+
+@app.route("/api/pro/status", methods=["GET"])
+def pro_status():
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error":"Not logged in"}), 401
+    now = datetime.date.today().isoformat()
+    is_pro = u.get("pro_expiry","") >= now
+    if not is_pro and u.get("pro"):
+        u["pro"] = False
+        save_user(uid, u)
+    return jsonify({"pro":is_pro,"pro_expiry":u.get("pro_expiry")})
+
+# ─── GROQ AI COACH ────────────────────────────────────────────────────
+import urllib.request as _urllib_req
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")   # set in .env
+GROQ_MODEL   = "llama-3.3-70b-versatile"
+GROQ_SYSTEM  = (
+    "You are an expert AI fitness and health coach built into StreakFit, "
+    "a zero-equipment calisthenics app. "
+    "You ONLY answer questions about fitness, exercise, nutrition, health, "
+    "recovery, sleep, hydration, motivation, and calisthenics training. "
+    "If the user asks about ANYTHING unrelated to health or fitness, "
+    "politely decline and redirect them to fitness topics. "
+    "Keep responses concise, practical, and encouraging. "
+    "Use bullet points for exercise lists. "
+    "Never prescribe medication or diagnose medical conditions — "
+    "always recommend seeing a doctor for medical issues."
+)
+
+@app.route("/api/coach", methods=["POST"])
+def coach():
+    uid, u = cur_user()
+    if not u:
+        return jsonify({"error": "Not logged in"}), 401
+    if not GROQ_API_KEY:
+        return jsonify({"error": "AI Coach not configured on server"}), 503
+    # Pro check
+    now = datetime.date.today().isoformat()
+    if not (u.get("pro_expiry","") >= now):
+        return jsonify({"error": "pro_required"}), 402
+    b = request.json or {}
+    messages = b.get("messages", [])
+    if not messages:
+        return jsonify({"error": "No messages provided"}), 400
+    valid = [{"role": m["role"], "content": str(m["content"])[:2000]}
+             for m in messages if m.get("role") in ("user", "assistant") and m.get("content")]
+    if not valid:
+        return jsonify({"error": "Invalid messages"}), 400
+    try:
+        import requests as _requests
+        payload = {
+            "model": GROQ_MODEL,
+            "max_tokens": 800,
+            "messages": [{"role": "system", "content": GROQ_SYSTEM}] + valid,
+            "temperature": 0.7,
+        }
+        resp = _requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=30,
+        )
+        print(f"[Groq] status: {resp.status_code}")
+        if resp.status_code != 200:
+            print(f"[Groq] response body: {resp.text}")
+            return jsonify({"error": f"Groq error {resp.status_code}: {resp.json().get('error', {}).get('message', resp.text)}"}), 503
+        data = resp.json()
+        reply = data["choices"][0]["message"]["content"]
+        return jsonify({"reply": reply})
+    except Exception as e:
+        print(f"[Groq] exception: {e}")
+        return jsonify({"error": f"AI Coach error: {str(e)}"}), 503
+
 @app.route("/api/reset", methods=["POST"])
 def reset():
     uid, u = cur_user()
@@ -1312,17 +1435,12 @@ def reset():
         "setup":False,"days_per_week":3,"muscle_groups":[],"intensity":"intermediate","plan":[],
         "streak":0,"best_streak":0,"streak_at_risk":False,"gems":0,"shields":0,
         "total_sessions":0,"history":[],"week_done":{},"last_week":None,
-        "quiz_done_date":None,"quiz_lives":QUIZ_LIVES,"quiz_lives_date":None,"bonus_date":None,"week_reward_claimed":None,"ad_gems_date":None,"purchased_programs":[],"program_access":{},"active_program":None,
+        "quiz_done_date":None,"quiz_lives":QUIZ_LIVES,"quiz_lives_date":None,"bonus_date":None,"week_reward_claimed":None,"ad_gems_date":None,"purchased_programs":[],"program_access":{},"active_program":None,"pro":False,"pro_expiry":None,
         "weight_log":[],"metrics":{"weight_kg":None,"height_cm":None,"age":None,"gender":"male"},
     })
     save_user(uid, u)
     return jsonify({"ok":True})
 
 if __name__ == "__main__":
-    print("\n🏋️  StreakFit Calisthenics App v2")
-    print("━"*38)
-    print("▶  http://192.168.18.219:5000")
-    print("━"*38+"\n")
-    app.run(host="192.168.18.219", port=5000, debug=True)
-
-# flask --app app.py run --host=192.168.18.219 --port=5000
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
