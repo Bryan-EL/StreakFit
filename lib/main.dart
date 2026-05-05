@@ -2371,13 +2371,19 @@ class _WorkoutState extends State<WorkoutScreen> {
     if (!mounted) return;
     // Close loading overlay
     Navigator.of(context, rootNavigator: true).pop();
-    // Update HUD immediately
+    // Update HUD immediately — including week_done so strip turns green
     if (r['error'] == null) {
+      final todayDow = (DateTime.now().weekday - 1).toString(); // 0=Mon..6=Sun
+      final currentWeekDone = Map<String, dynamic>.from(
+        context.read<AppState>().data['week_done'] ?? {},
+      );
+      currentWeekDone[todayDow] = true;
       context.read<AppState>().patch({
         'streak': r['streak'] ?? 0,
         'best_streak': r['best_streak'] ?? 0,
         'gems': r['gems'] ?? 0,
         'shields': r['shields'] ?? 0,
+        'week_done': currentWeekDone,
       });
     }
     await showModalBottomSheet(
@@ -4164,7 +4170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // About section
           _prefSec('About', [
-            _prefRow('Version', 'v2.1.0'),
+            _prefRow('Version', '2.1.1'),
             _prefRow('Exercises', 'Floor-only, zero equipment'),
             _prefRow('Shield max', '2 shields'),
             _prefRow('Quiz', '10 questions/day · 2 lives'),
